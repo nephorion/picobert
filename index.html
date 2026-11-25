@@ -815,7 +815,7 @@ class Trainer {
   checkpoint() {
     const n = this.sums.n;
     this.checkpoints.push({
-      step: this.stepCount,
+      step: this.stepCount, n,
       weights: this.model.list.map(({ t }) => Float64Array.from(t.v.data)),
       w: this.model.list.map(({ t }) => l2(t.v.data)),
       g: n ? this.sums.g.map((x) => x / n) : null,
@@ -825,7 +825,14 @@ class Trainer {
     // Too many: keep every other one (always the first and the newest) and record half as often.
     if (this.checkpoints.length > CONFIG.maxCheckpoints) {
       const end = this.checkpoints.length - 1;
-      this.checkpoints = this.checkpoints.filter((_, i) => i % 2 === 0 || i === end);
+      const keep = (i) => i % 2 === 0 || i === end;
+      this.checkpoints.forEach((c, i) => {
+        if (keep(i) || !c.n) return;
+        const next = this.checkpoints[i + 1], n = c.n + next.n;   // next one covers both intervals
+        for (const key of ["g", "u"]) next[key] = c[key].map((x, k) => (x * c.n + (next.n ? next[key][k] * next.n : 0)) / n);
+        next.n = n;
+      });
+      this.checkpoints = this.checkpoints.filter((_, i) => keep(i));
       this.every *= 2;
     }
   }
@@ -871,7 +878,7 @@ class Trainer {
     });
     this.stepCount++;
     this.last = {
-      step: this.stepCount, t: this.t, lr: this.lr, loss, batch, gRaw, gNorm, clipScale, before,
+      step: this.stepCount, t: this.t, lr: this.lr, clip: this.clip, loss, batch, gRaw, gNorm, clipScale, before,
       g: model.list.map(({ t }) => Float64Array.from(t.g.data)),
       m: this.m.map((x) => Float64Array.from(x)), v: this.v.map((x) => Float64Array.from(x)),
       w: model.list.map(({ t }) => Float64Array.from(t.v.data)),
@@ -1504,12 +1511,12 @@ function tvGrid(data, rows, cols, o = {}) {
   return h + `</table>`;
 }
 function tvStepHTML() {
-  const tr = state.trainer, s = tr.last;
+  const s = state.trainer.last;
   if (!s) return `<p class="caption">No step to show yet. Press <b>Step ×1</b> or <b>Train</b>.</p>`;
   const V = state.task.vocab, list = state.model.list, { b1, b2, eps } = CONFIG.adam;
   const k = Math.min(state.tv.tensor, list.length - 1), { rows, cols } = list[k].t.v, c = Math.min(state.tv.cell, rows * cols - 1);
 
-  let h = `<h3>1. Forward: a batch of ${s.batch.length} random examples (step ${s.step})</h3><div style="max-height:220px;overflow:auto"><table class="tv"><tr><th>#</th><th>input (hidden token shown highlighted)</th><th>guess → truth (probability given to truth)</th><th>loss</th></tr>`;
+  let h = `<h3>1. Forward: a batch of ${s.batch.length} random examples (step ${s.step})</h3><div id="tvBatch" style="max-height:220px;overflow:auto"><table class="tv"><tr><th>#</th><th>input (hidden token shown highlighted)</th><th>guess → truth (probability given to truth)</th><th>loss</th></tr>`;
   s.batch.forEach(({ ex, loss, P }, b) => {
     const toks = ex.truth.map((t, i) => ex.maskedPositions.includes(i) ? `<span class="tv-mask">${esc(V[t])}</span>` : esc(V[t])).join(" ");
     const guesses = ex.maskedPositions.map((pos, m) => {
@@ -1524,7 +1531,7 @@ function tvStepHTML() {
   h += `<h3>2. Loss: the mean over the batch</h3><div class="tv-math">loss = (1/${s.batch.length}) Σ example loss = <b>${fmtN(s.loss, 4)}</b></div>`;
 
   h += `<h3>3. Backward: one gradient per weight, then clipping</h3><div class="tv-math">global norm ‖g‖ = √(Σ over all weights of g²) = ${fmtN(s.gNorm, 4)}<br>` +
-    (s.clipScale < 1 ? `larger than ${CONFIG.clip}, so every gradient is multiplied by ${CONFIG.clip} / ${fmtN(s.gNorm, 4)} = <b>${fmtN(s.clipScale, 4)}</b>` : `<b>not clipped</b> (${tr.clip ? `not above ${CONFIG.clip}` : "clipping was off"})`) + `</div>`;
+    (s.clipScale < 1 ? `larger than ${CONFIG.clip}, so every gradient is multiplied by ${CONFIG.clip} / ${fmtN(s.gNorm, 4)} = <b>${fmtN(s.clipScale, 4)}</b>` : `<b>not clipped</b> (${s.clip ? `not above ${CONFIG.clip}` : "clipping was off"})`) + `</div>`;
 
   h += `<h3>4. Update: Adam moves every weight</h3><div class="caption">Click a tensor, then a cell in any of its grids.</div><div class="tv-row"><table class="tv"><tr><th>tensor</th><th>shape</th><th>‖g‖</th><th>‖ΔW‖</th></tr>`;
   list.forEach(({ name, t }, i) => {
@@ -1646,12 +1653,17 @@ function tvEmbedHTML(idx) {
   }
   return s + `</svg>`;
 }
+function renderStep() {
+  const scroll = $("tvBatch") ? $("tvBatch").scrollTop : 0;
+  $("tvStep").innerHTML = tvStepHTML();
+  if ($("tvBatch")) $("tvBatch").scrollTop = scroll;
+}
 function renderTrainTab() {
   const cps = state.trainer.checkpoints, idx = tvIndex(), slider = $("tvSlider");
   slider.max = cps.length - 1; slider.value = idx;
   $("tvAt").innerHTML = `step <b>${cps[idx].step}</b> of ${state.trainer.stepCount}${state.tv.at === null ? " (following the newest checkpoint)" : ""}`;
   $("tvPlay").textContent = state.tv.timer ? "⏸ Pause" : "▶ Play";
-  $("tvStep").innerHTML = tvStepHTML();
+  renderStep();
   $("tvHistory").innerHTML = tvHistoryHTML(cps[idx].step);
   $("tvAttn").innerHTML = tvAttnHTML(idx);
   $("tvEmbed").innerHTML = tvEmbedHTML(idx);
@@ -1811,7 +1823,7 @@ function importWeights(text) {
     if (p.rows !== t.v.rows || p.cols !== t.v.cols || p.data.length !== t.v.data.length || !p.data.every(Number.isFinite)) throw new Error("bad shape or values in " + name);
   }
   for (const { name, t } of state.model.list) t.v.data.set(o.params[name].data);
-  state.trainer.resetOptimizer(); state.trainer.resetRecording(); refresh();
+  state.trainer.resetOptimizer(); state.trainer.resetRecording(); tvStopPlay(); state.tv.at = null; refresh();
 }
 function showTests() {
   const res = runSelfTests(), failed = res.filter((r) => !r.pass);
@@ -1903,8 +1915,7 @@ function initUI() {
   $("tvStep").onpointerdown = (e) => {
     const row = e.target.closest("[data-tensor]"), cell = e.target.closest("[data-cell]");
     if (row) { state.tv.tensor = +row.dataset.tensor; state.tv.cell = 0; } else if (cell) state.tv.cell = +cell.dataset.cell; else return;
-    const scroll = $("tvStep").querySelector("div").scrollTop;
-    $("tvStep").innerHTML = tvStepHTML(); $("tvStep").querySelector("div").scrollTop = scroll;
+    renderStep();
   };
   $("tvMetric").onchange = (e) => { state.tv.metric = e.target.value; renderTrainTab(); };
   $("tvSlider").oninput = (e) => { tvStopPlay(); tvSeek(+e.target.value); };
