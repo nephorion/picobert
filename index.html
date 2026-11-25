@@ -137,6 +137,8 @@ table.tv tr.sel{background:var(--chip);font-weight:600}
 #tourCard,#tourOffer{position:fixed;z-index:18;width:320px;max-width:calc(100vw - 16px);background:var(--panel);border:1px solid var(--accent);border-radius:9px;padding:10px 12px;box-shadow:0 8px 28px #0006}
 #tourCard{max-height:calc(100vh - 16px);overflow:auto}
 #tourOffer{right:14px;bottom:14px}
+#tourConfirm{width:360px;max-width:calc(100vw - 16px);background:var(--panel);color:var(--fg);border:1px solid var(--accent);border-radius:9px;padding:12px 14px;box-shadow:0 8px 28px #0006}
+#tourConfirm::backdrop{background:rgba(0,0,0,.5)}
 #tourCard[hidden],#tourOffer[hidden],#tourSpot[hidden]{display:none}
 .tour-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:5px}
 .tour-btns{display:flex;gap:6px;margin-top:10px}
@@ -277,6 +279,11 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
   <div id="tourBody" aria-live="polite"></div>
   <div class="tour-btns"><button id="tourSkip">Skip tour</button><span class="sep"></span><button id="tourBack">Back</button><button id="tourNext" class="primary">Next</button></div>
 </div>
+<dialog id="tourConfirm" aria-labelledby="tourConfirmTitle" aria-describedby="tourConfirmText">
+  <div class="tour-head"><b id="tourConfirmTitle">Start the tour?</b></div>
+  <div id="tourConfirmText">The tour starts with a fresh, untrained <b>Twin pairs</b> model. Your current model and its snapshots will be <b>discarded</b>.<div class="caption" style="margin-top:6px">To keep the weights, cancel and use <b>Export weights</b> first.</div></div>
+  <div class="tour-btns"><span class="sep"></span><button id="tourConfirmNo" autofocus>Cancel</button><button id="tourConfirmYes" class="primary">Discard and start</button></div>
+</dialog>
 <div id="tourOffer" role="dialog" aria-label="Guided tour" hidden>
   <b>New here?</b><div>A 2-minute hands-on tour shows the model learning a puzzle.</div>
   <div class="tour-btns"><button id="tourStart" class="primary">Take the tour</button><button id="tourDismiss">Not now</button></div>
@@ -1786,7 +1793,7 @@ const TOUR = [
     body: () => `Drag any weight with an ↕ cursor up or down and watch the guess and the attention change.<br><br>Then try another task from the <b>Task</b> menu, or train on your own sequences with <b>Your data…</b>. The <b>Take the tour</b> button brings this back.` },
 ];
 function initTour(setTab) {
-  const spot = $("tourSpot"), card = $("tourCard"), offer = $("tourOffer");
+  const spot = $("tourSpot"), card = $("tourCard"), offer = $("tourOffer"), ask = $("tourConfirm");
   let at = -1, frame = 0, shown = "", guideWasOpen = true;
   const remember = () => { try { localStorage.setItem("tinybert.tour", "seen"); } catch {} };
 
@@ -1848,7 +1855,9 @@ function initTour(setTab) {
   const start = () => {
     offer.hidden = true; remember();
     if (at >= 0) { go(0); return; }
-    if (hasWork() && !confirm("The tour starts with a fresh, untrained Twin pairs model. Your current model and snapshots will be discarded. Continue?")) return;
+    if (hasWork()) ask.showModal(); else begin();
+  };
+  const begin = () => {
     prepare();
     guideWasOpen = $("guide").open; $("guide").open = false;
     spot.hidden = card.hidden = false;
@@ -1857,6 +1866,9 @@ function initTour(setTab) {
   const next = () => (at === TOUR.length - 1 ? end() : go(at + 1));
   const back = () => { if (at > 0) go(at - 1); };
 
+  $("tourConfirmNo").onclick = () => ask.close();
+  $("tourConfirmYes").onclick = () => { ask.close(); begin(); };
+  ask.addEventListener("keydown", (e) => e.stopPropagation());          // keep ← → off the page behind (Esc still closes)
   $("tourBtn").onclick = start; $("tourStart").onclick = start;
   $("tourDismiss").onclick = () => { offer.hidden = true; remember(); };
   $("tourNext").onclick = next; $("tourBack").onclick = back; $("tourSkip").onclick = end;
