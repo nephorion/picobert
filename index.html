@@ -1496,8 +1496,14 @@ function exportWeights() {
 }
 function importWeights(text) {
   const o = JSON.parse(text);
-  if (o.config.n_layers !== state.nLayers || o.vocab.length !== state.task.vocab.length) throw new Error(`weights are for ${o.config.n_layers} layer(s) / vocab ${o.vocab.length}; select a matching task and layer count first`);
-  for (const { name, t } of state.model.list) { if (!o.params[name]) throw new Error("missing " + name); t.v.data.set(o.params[name].data); }
+  if (o.config.n_layers !== state.nLayers || JSON.stringify(o.vocab) !== JSON.stringify(state.task.vocab)) throw new Error(`weights are for ${o.config.n_layers} layer(s) / vocab ${o.vocab.join(" ")}; select a matching task and layer count first`);
+  // Check every tensor before writing any, so a bad file leaves the model untouched.
+  for (const { name, t } of state.model.list) {
+    const p = o.params[name];
+    if (!p) throw new Error("missing " + name);
+    if (p.rows !== t.v.rows || p.cols !== t.v.cols || p.data.length !== t.v.data.length || !p.data.every(Number.isFinite)) throw new Error("bad shape or values in " + name);
+  }
+  for (const { name, t } of state.model.list) t.v.data.set(o.params[name].data);
   state.trainer.resetOptimizer(); refresh();
 }
 function showTests() {
@@ -1511,8 +1517,9 @@ function showTests() {
 }
 
 function initUI() {
-  const guide = $("guide"); if (localStorage.getItem("tinybert.guide") === "closed") guide.open = false;
-  guide.addEventListener("toggle", () => localStorage.setItem("tinybert.guide", guide.open ? "open" : "closed"));
+  // Storage can be blocked by browser settings; remembering the guide state is optional.
+  const guide = $("guide"); try { if (localStorage.getItem("tinybert.guide") === "closed") guide.open = false; } catch {}
+  guide.addEventListener("toggle", () => { try { localStorage.setItem("tinybert.guide", guide.open ? "open" : "closed"); } catch {} });
   $("seed").value = state.seed; $("lrIn").value = CONFIG.lr; $("clipIn").checked = true; $("decSel").value = String(state.dec);
   state.task = state.tasks[0];
   $("dataText").value = SAMPLE_DATA;
