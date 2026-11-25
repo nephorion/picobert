@@ -11,6 +11,16 @@ Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, work
 
 **Your own training data:** choose *Your data…* in the task menu, then paste or upload sequences, one per line, exactly 8 tokens separated by spaces or commas (max 15 distinct tokens). JSON lines (`{"tokens":[…],"mask":[2,5]}`) can fix the masked positions; otherwise 1–2 random positions are masked each time. Loading data resets the model. Every element has an **ⓘ icon**: hover it (or click to keep it open) for an explanation of the stage, matrix, control or chart next to it; the *How to read this page* box at the top gives a 2-minute tour and can be collapsed (it remembers). **Export/Import weights** writes JSON that `reference.py` (NumPy only, `uv run reference.py weights.json --ids …`) can re-run independently to check the page's forward pass.
 
+## Default task and editing weights
+
+The page opens on **Twin pairs**: every token appears twice in a row, so a masked token can only be read from its neighbour in the pair, and a head has to find it. On the **Forward pass** tab you can **drag any weight** in the left panel up or down (cells with an ↕ cursor; hold Shift for fine steps) and watch the forward pass recompute. Dragging pauses training; save a snapshot first if you want to get back. For the embeddings stage, dragging a looked-up row edits the underlying token or position table.
+
+Twin pairs, 3000 steps, seeds 1–10: nine reach 100 % masked accuracy by step 1000, with the best head putting 0.65–0.94 of a masked position's attention on its twin. Seed 5 is the exception (63 % accuracy at step 3000).
+
+## Self-tests in CI
+
+`node ci/selftest.js` runs the page's built-in self-tests without a browser and exits non-zero if any fail. GitHub Actions runs it on every pull request and on pushes to `main`.
+
 ## Training tab
 
 The **Training** tab shows how the weights change, with the training controls moved to the top. **One training step** lays out the last optimizer step: the batch and its predictions, the loss, gradient clipping, and for any weight you click, the Adam arithmetic that moved it. **History over training** plots loss, accuracy, and each tensor's weight, gradient or update size. **Replay** scrubs through saved checkpoints to show attention forming on the current input and token or position embeddings moving (2D PCA projection). Checkpoints are taken every 5 steps, less often on long runs, and are cleared by a model reset or weight import.
