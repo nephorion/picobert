@@ -5,11 +5,21 @@
 
 **Live demo:** https://nephorion.github.io/picobert/
 
-![The forward-pass view after 3000 steps on the Twin pairs example set: head 2 mostly attends to each token's twin](docs/screenshot.png)
+![The forward-pass view after 3000 steps on the default Twin pairs task: for the masked token, head 2 puts 0.98 of its attention on the token's twin](docs/screenshot.png)
 
 Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, works offline). It runs a deliberately tiny BERT-style encoder (d_model 6, 3 heads of width 2) written in plain JS with a hand-rolled matrix autograd, and trains it live on toy masked-token tasks. The **pipeline strip** steps through one forward pass (←/→, Prev/Next/Play); the **left panel** shows every intermediate matrix of the selected stage with real numbers, and hovering any computed cell shows the arithmetic that produced it and highlights its inputs. The **heads panel** (right) shows, per head, the query (solid) and key (dashed) vectors as 2D arrows (hover a query to see its projection onto each key), the attention heatmap, attention lines, and optionally the W_QK / W_OV circuit matrices; each head can be ablated. The **bottom panel** trains (Train / Step ×1 / Step ×100), plots loss and masked-token accuracy, shows predictions at the masked positions, and saves/restores weight snapshots to compare before and after.
 
 **Your own training data:** choose *Your data…* in the task menu, then paste or upload sequences, one per line, exactly 8 tokens separated by spaces or commas (max 15 distinct tokens). JSON lines (`{"tokens":[…],"mask":[2,5]}`) can fix the masked positions; otherwise 1–2 random positions are masked each time. Loading data resets the model. Every element has an **ⓘ icon**: hover it (or click to keep it open) for an explanation of the stage, matrix, control or chart next to it; the *How to read this page* box at the top gives a 2-minute tour and can be collapsed (it remembers). **Export/Import weights** writes JSON that `reference.py` (NumPy only, `uv run reference.py weights.json --ids …`) can re-run independently to check the page's forward pass.
+
+## Default task and editing weights
+
+The page opens on **Twin pairs**: every token appears twice in a row, so a masked token can only be read from its neighbour in the pair, and a head has to find it. On the **Forward pass** tab you can **drag any weight** in the left panel up or down (cells with an ↕ cursor; hold Shift for fine steps) and watch the forward pass recompute. Dragging pauses training; save a snapshot first if you want to get back. For the embeddings stage, dragging a looked-up row edits the underlying token or position table.
+
+Twin pairs, 3000 steps, seeds 1–10: nine reach 100 % masked accuracy by step 1000, with the best head putting 0.64–0.94 of a masked position's attention on its twin. Seed 5 is the exception (about 60 % accuracy at step 3000). This built-in task never hides both twins; the *Twin pairs* example set under *Your data…* can, which is why its ceiling and measurements differ.
+
+## Self-tests in CI
+
+`node ci/selftest.js` runs the page's built-in self-tests without a browser and exits non-zero if any fail. GitHub Actions runs it on every pull request and on pushes to `main`.
 
 ## Training tab
 

@@ -188,7 +188,7 @@ Each task is a generator that returns `{tokens, maskedPositions, targets}`. Mask
 3. **Count / majority:** a sequence over `{x, y}`. The masked target is whichever symbol is more frequent among the unmasked tokens (odd count guaranteed). *Expected: broad, roughly uniform attention.*
 4. **Sorted digits:** a strictly increasing sequence of digits 0–9 (randomly chosen subset). *Expected: attends to both neighbours.*
 
-Task 1 is the default.
+The default is **Twin pairs** (each token appears twice in a row; both twins are never masked together), listed above the four numbered tasks: it forces a visible attention pattern, which task 1 does not. Acceptance criteria 6 and 7 still refer to task 1.
 
 ---
 

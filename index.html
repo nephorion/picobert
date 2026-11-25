@@ -71,6 +71,7 @@ table.mat td{padding:2px 4px;text-align:right;border:1px solid var(--line);min-w
 .legend .bar{width:50px;height:6px;border-radius:3px}
 .bar.div{background:linear-gradient(90deg,rgba(37,99,235,.8),rgba(127,127,127,.1),rgba(234,88,12,.8))}
 .bar.seq{background:linear-gradient(90deg,rgba(22,163,74,0),rgba(22,163,74,.8))}
+td[data-w]{cursor:ns-resize !important;touch-action:none;user-select:none}
 td.hl{outline:2px solid var(--hl);outline-offset:-2px}
 td.hlsrc{outline:3px solid var(--fg);outline-offset:-3px}
 .tokhl{outline:2px solid var(--hl);outline-offset:1px;border-radius:3px}
@@ -172,6 +173,7 @@ table.tv tr.sel{background:var(--chip);font-weight:600}
       <ol>
         <li>Press <b>→</b> a few times (or click the stage buttons) to walk through one forward pass.</li>
         <li>Hover any number in a computed matrix: the exact arithmetic appears and its inputs light up.</li>
+        <li><b>Drag a weight</b> (cells with an ↕ cursor) up or down and watch the attention and output change. Save a snapshot first if you want to get back.</li>
         <li>In the bottom panel press <b>Step ×100</b> a few times, or <b>Train</b>. Watch the loss fall and the attention heatmaps sharpen.</li>
         <li>Click a token box in the top bar to mask a different position and see how the prediction changes.</li>
         <li>Choose the task <b>Your data…</b> to train on your own sequences — ready-made example sets are provided.</li>
@@ -712,6 +714,19 @@ const BUILTIN_TASKS = [
   },
 ];
 
+// The default: only one other position holds the answer, so a head has to find it. Listed first in the
+// menu but kept out of BUILTIN_TASKS, whose order the self-tests and numbering rely on.
+const TWIN_TASK = {
+  id: "twin", name: "Twin pairs (start here)", vocab: ["[MASK]", ...LETTERS],
+  hint: "Every token appears twice in a row (c c a a f f b b), so a masked token can only be read from its twin: i+1 from even positions, i−1 from odd ones. Look for a head whose heatmap pairs up neighbours 0↔1, 2↔3, 4↔5, 6↔7. The Training tab's Replay shows it forming.",
+  gen(rng) {
+    const L = CONFIG.seq_len, half = Array.from({ length: L / 2 }, () => 1 + rng.int(6));
+    const truth = Array.from({ length: L }, (_, i) => half[i >> 1]);
+    // never hide both twins: every target stays predictable
+    return makeExample(truth, pickMask(rng, L, nMask(rng), (p) => p.length < 2 || p[0] >> 1 !== p[1] >> 1));
+  },
+};
+
 // User-provided data. Lines are plain token lists, or JSON: ["a","b",…] / {"tokens":[…],"mask":[i,j]}.
 function parseDataset(text, L) {
   const errors = [], rows = [], vocab = ["[MASK]"], seen = new Map();
@@ -902,6 +917,15 @@ class Trainer {
     const n = this.recent.length; if (!n) return null;
     return { loss: this.recent.reduce((s, r) => s + r.loss, 0) / n, acc: this.recent.reduce((s, r) => s + r.acc, 0) / n };
   }
+  // Weights were changed by hand: like a restore, forget Adam's momentum and the last step,
+  // and make the newest checkpoint show the new values.
+  weightsEdited() {
+    this.resetOptimizer(); this.last = null;
+    const newest = this.checkpoints[this.checkpoints.length - 1];
+    if (newest.step !== this.stepCount) { this.checkpoint(); return; }
+    newest.weights = this.model.list.map(({ t }) => Float64Array.from(t.v.data));
+    newest.w = this.model.list.map(({ t }) => l2(t.v.data));
+  }
   snapshot() { return { step: this.stepCount, data: this.model.list.map(({ name, t }) => [name, Float64Array.from(t.v.data)]) }; }
   restore(s) {
     for (const [name, d] of s.data) this.model.list.find((p) => p.name === name).t.v.data.set(d);
@@ -990,9 +1014,9 @@ function runSelfTests() {
  * Exports for console poking
  * ========================================================================== */
 const root = typeof window !== "undefined" ? window : globalThis;
-const state = { taskIdx: 0, task: null, tasks: BUILTIN_TASKS.concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, tab: "forward", tv: { tensor: 0, cell: 0, metric: "w", at: null, pos: false, timer: null }, snapshots: [], hover: null };
+const state = { taskIdx: 0, task: null, tasks: [TWIN_TASK, ...BUILTIN_TASKS].concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, tab: "forward", tv: { tensor: 0, cell: 0, metric: "w", at: null, pos: false, timer: null }, snapshots: [], hover: null, drag: false };
 root.tinybert = {
-  config: CONFIG, state, forward, createModel, runSelfTests, Trainer, tasks: BUILTIN_TASKS, makeRng, parseDataset,
+  config: CONFIG, state, forward, createModel, runSelfTests, Trainer, tasks: BUILTIN_TASKS, twinTask: TWIN_TASK, makeRng, parseDataset,
   get model() { return state.model; }, get trace() { return state.trace; }, get trainer() { return state.trainer; },
 };
 
@@ -1137,6 +1161,10 @@ const D = (id, name, mat) => ({ id, name, mat });          // matrix descriptor 
 function matrixHTML(o) {
   const m = o.mat, kind = o.kind || "div";
   reg[o.id] = { mat: m, explain: o.explain };
+  // Draggable if this is a parameter itself, or (o.edit) rows looked up from an embedding table.
+  const own = state.model.list.findIndex((p) => p.t.v === m);
+  const edit = o.edit || (own >= 0 ? { k: own, row: (i) => i } : null);
+  const drag = (i, j) => edit ? ` data-w="${edit.k}" data-wi="${edit.row(i) * m.cols + j}"` : "";
   let mn = Infinity, mx = -Infinity, am = 0;
   for (const x of m.data) { mn = Math.min(mn, x); mx = Math.max(mx, x); am = Math.max(am, Math.abs(x)); }
   const rl = (i) => o.rows === "tok" ? `<th data-tok="${i}">${esc(tokLabel(i))}</th>` : Array.isArray(o.rows) ? `<th>${esc(o.rows[i])}</th>` : o.rows === "none" ? "" : `<th${o.rowHeads ? ` style="border-right:3px solid ${headColor(Math.floor(i / CONFIG.d_head))}"` : ""}>${i}</th>`;
@@ -1155,7 +1183,7 @@ function matrixHTML(o) {
     h += `<tr>${rl(i)}`;
     for (let j = 0; j < m.cols; j++) {
       const v = m.data[i * m.cols + j];
-      h += `<td data-mid="${o.id}" data-i="${i}" data-j="${j}" style="background:${cellBg(v, kind, am)}">${fmt(v)}</td>`;
+      h += `<td data-mid="${o.id}" data-i="${i}" data-j="${j}"${drag(i, j)} style="background:${cellBg(v, kind, am)}">${fmt(v)}</td>`;
     }
     h += "</tr>";
   }
@@ -1261,8 +1289,8 @@ const stageRenderers = [
     const tokCopy = (i, j) => ({ html: `TokEmb[t][${i},${j}] = TokEmb[${tr.ids[i]}="${esc(tokName(tr.ids[i]))}"][${j}] = <b>${fmt(tr.emb.tokRows.get(i, j))}</b>`, hl: [] });
     const posCopy = (i, j) => ({ html: `PosEmb[${i},${j}] = PosEmb[position ${i}][${j}] = <b>${fmt(tr.emb.posRows.get(i, j))}</b>`, hl: [] });
     return eq(
-      matrixHTML({ id: "tok", name: "TokEmb[t]", mat: tok.mat, rows: "tok", formula: "rows of the token table for the input", explain: tokCopy }), op("+"),
-      matrixHTML({ id: "pos", name: "PosEmb[0..7]", mat: pos.mat, rows: "tok", formula: "rows of the position table", explain: posCopy }), op("="),
+      matrixHTML({ id: "tok", name: "TokEmb[t]", mat: tok.mat, rows: "tok", formula: "rows of the token table for the input", explain: tokCopy, edit: { k: 0, row: (i) => tr.ids[i] } }), op("+"),
+      matrixHTML({ id: "pos", name: "PosEmb[0..7]", mat: pos.mat, rows: "tok", formula: "rows of the position table", explain: posCopy, edit: { k: 1, row: (i) => i } }), op("="),
       matrixHTML({ id: "E", name: "E", mat: E.mat, rows: "tok", formula: "E = TokEmb[t] + PosEmb", explain: exAdd(E, tok, pos) }));
   },
   function project(c) {
@@ -1785,12 +1813,43 @@ function setTraining(on) {
 }
 function stepN(n) { setTraining(false); for (let i = 0; i < n; i++) state.trainer.step(); refresh(); }
 
+/* drag a weight cell up or down to change it; the whole trace recomputes as you move */
+function startWeightDrag(e) {
+  const td = e.target.closest("td[data-w]");
+  if (!td || e.button !== 0) return;
+  e.preventDefault();
+  const { name, t } = state.model.list[+td.dataset.w], data = t.v.data, i = +td.dataset.wi, tip = $("tip");
+  let from = null, value, lastY = e.clientY, frame = 0;       // from stays null until the pointer moves
+  const show = (x, y) => {
+    tip.innerHTML = `${esc(name)}[${Math.floor(i / t.v.cols)},${i % t.v.cols}] = <b>${fmtN(value)}</b> (was ${fmtN(from)})`;
+    tip.style.display = "block"; tip.style.left = x + 14 + "px"; tip.style.top = y + 14 + "px";
+  };
+  const move = (ev) => {
+    if (from === null) {
+      if (ev.clientY === lastY) return;                       // a plain click changes and pauses nothing
+      setTraining(false); from = value = data[i];
+      state.drag = true; applyHover(); $("infoPop").style.display = "none";
+    }
+    value += (lastY - ev.clientY) * (ev.shiftKey ? 0.001 : 0.02);   // up = larger; Shift = fine, from here on
+    lastY = ev.clientY; data[i] = value; show(ev.clientX, ev.clientY);
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; refresh(); show(ev.clientX, ev.clientY); });
+  };
+  const end = () => {
+    window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
+    if (from === null) return;
+    cancelAnimationFrame(frame); state.drag = false; tip.style.display = "none";
+    if (value !== from) state.trainer.weightsEdited();
+    refresh();
+  };
+  window.addEventListener("pointermove", move); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
+}
+
 /* hover: cell explainer + token highlighting */
 function clearHl() {
   document.querySelectorAll(".hl,.hlsrc,.tokhl").forEach((e) => e.classList.remove("hl", "hlsrc", "tokhl"));
 }
 function applyHover() {
-  clearHl(); const h = state.hover, tip = $("tip");
+  clearHl(); const h = state.drag ? null : state.hover, tip = $("tip");
   if (!h) { tip.style.display = "none"; return; }
   if (h.kind === "cell") {
     const r = reg[h.mid]; if (!r || !r.explain || h.i >= r.mat.rows || h.j >= r.mat.cols) { tip.style.display = "none"; return; }
@@ -1885,6 +1944,7 @@ function initUI() {
     else if (e.target.dataset.ablate !== undefined) { state.model.ablate[+e.target.dataset.ablate] = e.target.checked; refresh(); }
   };
 
+  $("detail").onpointerdown = startWeightDrag;
   $("trainBtn").onclick = () => setTraining(!state.trainer.running);
   $("step1").onclick = () => stepN(1);
   $("step100").onclick = () => stepN(100);
@@ -1943,6 +2003,7 @@ function initUI() {
   document.addEventListener("focusin", (e) => { if (e.target.classList && e.target.classList.contains("i") && !pinned) showInfo(e.target, false); });
   document.addEventListener("focusout", () => { if (!pinned) hideInfo(); });
   document.addEventListener("mouseover", (e) => {
+    if (state.drag) return;
     const ico = e.target.closest(".i");
     if (ico) { if (!pinned) showInfo(ico, false); state.hover = null; applyHover(); return; }
     if (!pinned && !e.target.closest("#infoPop")) hideInfo();
@@ -1961,7 +2022,7 @@ function initUI() {
 }
 
 if (typeof document !== "undefined") initUI();
-else { const r = runSelfTests(); console.log(r.map((x) => `${x.pass ? "PASS" : "FAIL"} ${x.name}: ${x.detail}`).join("\n")); }
+else { const r = runSelfTests(); console.log(r.map((x) => `${x.pass ? "PASS" : "FAIL"} ${x.name}: ${x.detail}`).join("\n")); if (r.some((x) => !x.pass)) process.exitCode = 1; }
 </script>
 </body>
 </html>
