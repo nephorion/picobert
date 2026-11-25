@@ -72,6 +72,10 @@ table.mat td{padding:2px 4px;text-align:right;border:1px solid var(--line);min-w
 .bar.div{background:linear-gradient(90deg,rgba(37,99,235,.8),rgba(127,127,127,.1),rgba(234,88,12,.8))}
 .bar.seq{background:linear-gradient(90deg,rgba(22,163,74,0),rgba(22,163,74,.8))}
 td[data-w]{cursor:ns-resize !important;touch-action:none;user-select:none}
+table.mat.editable td{border:1px dashed var(--accent)}
+.editable-tag{display:inline-block;margin-left:6px;padding:0 5px;border:1px dashed var(--accent);border-radius:8px;color:var(--accent);font-size:10px;white-space:nowrap}
+#strip .st.w::after{content:" ↕";color:var(--accent);font-weight:700}
+#strip .st.w.on::after{color:#fff}
 td.hl{outline:2px solid var(--hl);outline-offset:-2px}
 td.hlsrc{outline:3px solid var(--fg);outline-offset:-3px}
 .tokhl{outline:2px solid var(--hl);outline-offset:1px;border-radius:3px}
@@ -189,7 +193,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
       <ol>
         <li>Press <b>→</b> a few times (or click the stage buttons) to walk through one forward pass.</li>
         <li>Hover any number in a computed matrix: the exact arithmetic appears and its inputs light up.</li>
-        <li><b>Drag a weight</b> (cells with an ↕ cursor) up or down and watch the attention and output change. Save a snapshot first if you want to get back.</li>
+        <li><b>Drag a weight</b> (dashed cells, marked <b>↕ drag to edit</b>) up or down and watch the attention and output change. Save a snapshot first if you want to get back.</li>
         <li>In the bottom panel press <b>Step ×100</b> a few times, or <b>Train</b>. Watch the loss fall and the attention heatmaps sharpen.</li>
         <li>Click a token box in the top bar to mask a different position and see how the prediction changes.</li>
         <li>Choose the task <b>Your data…</b> to train on your own sequences — ready-made example sets are provided.</li>
@@ -236,6 +240,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
     </div>
     <div class="stat">step <b id="stepOut">0</b> · <b id="spsOut">0</b> steps/s<span data-ic="sps"></span></div>
     <div class="stat">loss<span data-ic="loss"></span> <b id="lossOut">–</b> · masked acc<span data-ic="acc"></span> <b id="accOut">–</b></div>
+    <div class="stat" id="editOut" hidden></div>
     <div class="btns">
       <button id="snapBtn">Save snapshot</button><span data-ic="snap"></span>
       <select id="snapSel"><option value="">snapshots…</option></select>
@@ -1046,7 +1051,7 @@ function runSelfTests() {
  * Exports for console poking
  * ========================================================================== */
 const root = typeof window !== "undefined" ? window : globalThis;
-const state = { taskIdx: 0, task: null, tasks: [TWIN_TASK, ...BUILTIN_TASKS].concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, tab: "forward", tv: { tensor: 0, cell: 0, metric: "w", at: null, pos: false, timer: null }, snapshots: [], hover: null, drag: false };
+const state = { taskIdx: 0, task: null, tasks: [TWIN_TASK, ...BUILTIN_TASKS].concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, tab: "forward", tv: { tensor: 0, cell: 0, metric: "w", at: null, pos: false, timer: null }, snapshots: [], hover: null, drag: false, edits: null };
 root.tinybert = {
   config: CONFIG, state, forward, createModel, runSelfTests, Trainer, tasks: BUILTIN_TASKS, twinTask: TWIN_TASK, makeRng, parseDataset,
   get model() { return state.model; }, get trace() { return state.trace; }, get trainer() { return state.trainer; },
@@ -1207,9 +1212,9 @@ function matrixHTML(o) {
     if (Array.isArray(o.cols)) return `<th${st}>${esc(o.cols[j])}</th>`;
     return `<th${st}>${j}</th>`;
   };
-  let h = `<div class="mwrap${o.small ? " small" : ""}"><div class="mtitle"><b>${o.name}</b>${ic(infoKeyFor(o.id))}<span class="shape">${m.rows}×${m.cols}</span></div>`;
+  let h = `<div class="mwrap${o.small ? " small" : ""}"><div class="mtitle"><b>${o.name}</b>${ic(infoKeyFor(o.id))}<span class="shape">${m.rows}×${m.cols}</span>${edit ? `<span class="editable-tag">↕ drag to edit</span>` : ""}</div>`;
   if (o.formula) h += `<div class="formula">${o.formula}</div>`;
-  h += `<table class="mat"><thead><tr>${o.rows === "none" ? "" : "<th></th>"}`;
+  h += `<table class="mat${edit ? " editable" : ""}"><thead><tr>${o.rows === "none" ? "" : "<th></th>"}`;
   for (let j = 0; j < m.cols; j++) h += cl(j);
   h += "</tr></thead><tbody>";
   for (let i = 0; i < m.rows; i++) {
@@ -1316,6 +1321,8 @@ const STAGES = [
   { short: "Output", title: "11 · Output", desc: "logits = X_out·Wout + bout; P = softmax; loss = mean cross-entropy at masked positions." },
 ];
 const dm = () => CONFIG.d_model;
+// Stages (0-based) that show weights, i.e. have cells you can drag.
+const WEIGHT_STAGES = new Set([0, 1, 6, 7, 8, 9, 10]);
 const stageRenderers = [
   function embed(c) {
     const tr = c.tr, tok = D("tok", "TokEmb[t]", tr.emb.tokRows), pos = D("pos", "PosEmb", tr.emb.posRows), E = D("E", "E", tr.emb.E);
@@ -1532,28 +1539,39 @@ function renderHeads() {
 }
 function renderStrip() {
   $("strip").innerHTML = `<button id="prevBtn">◀ Prev</button><button id="playBtn">${state.playing ? "⏸ Pause" : "▶ Play"}</button><button id="nextBtn">Next ▶</button><span class="sep"></span>` +
-    STAGES.map((s, i) => `<button class="st${i === state.stage ? " on" : ""}" data-stage="${i}" title="${esc(s.title)}">${i + 1} ${s.short}</button>`).join("") + ic("play");
+    STAGES.map((s, i) => `<button class="st${WEIGHT_STAGES.has(i) ? " w" : ""}${i === state.stage ? " on" : ""}" data-stage="${i}" title="${esc(s.title)}">${i + 1} ${s.short}</button>`).join("") + ic("play");
   const s = STAGES[state.stage], lay = state.stage >= 1 && state.stage <= 9 && state.model.cfg.n_layers > 1 ? ` (layer ${state.layer + 1})` : "";
-  $("stageTitle").innerHTML = `<b>${s.title}${lay}</b>${ic("stage" + (state.stage + 1))} — ${s.desc}`;
+  $("stageTitle").innerHTML = `<b>${s.title}${lay}</b>${ic("stage" + (state.stage + 1))} — ${s.desc}<br><span class="caption">${WEIGHT_STAGES.has(state.stage) ? `<span class="editable-tag" style="margin-left:0">↕ drag to edit</span> marks the weights you can change here.` : "No weights to edit in this step: the steps marked ↕ above have them."}</span>`;
 }
 function renderDetail() {
   const tr = state.trace, model = state.model;
   const ctx = { tr, model, lay: tr.layers[state.layer], p: model.layers[state.layer] };
   $("detail").innerHTML = stageRenderers[state.stage](ctx);
 }
-function lineChart(vals, color, ymax, fixedMax) {
+// `edits` (scores after hand edits) continue the line to the right, in the highlight colour.
+function lineChart(vals, color, ymax, fixedMax, edits = []) {
   const W = 250, H = 80;
-  if (vals.length < 2) return `<svg class="chart" width="${W}" height="${H}"></svg>`;
-  const top = fixedMax || Math.max(ymax, 1e-6), n = vals.length;
-  const pts = vals.map((v, i) => `${(2 + (i / (n - 1)) * (W - 4)).toFixed(1)},${(H - 3 - Math.min(1, v / top) * (H - 8)).toFixed(1)}`).join(" ");
-  return `<svg class="chart" width="${W}" height="${H}"><polyline fill="none" stroke="${color}" stroke-width="1.6" points="${pts}"/><text x="4" y="10" font-size="9" fill="var(--muted)">${fmtN(top, 2)}</text><text x="4" y="${H - 4}" font-size="9" fill="var(--muted)">0</text></svg>`;
+  if (vals.length < 2 && edits.length < 2) return `<svg class="chart" width="${W}" height="${H}"></svg>`;
+  const top = fixedMax || Math.max(ymax, ...edits, 1e-6);
+  const trainedPart = vals.length < 2 ? 0 : edits.length ? 0.7 : 1;      // share of the width for training history
+  const x = (f) => (2 + f * (W - 4)).toFixed(1), y = (v) => (H - 3 - Math.min(1, v / top) * (H - 8)).toFixed(1);
+  let s = `<svg class="chart" width="${W}" height="${H}">`;
+  if (trainedPart) s += `<polyline fill="none" stroke="${color}" stroke-width="1.6" points="${vals.map((v, i) => `${x((i / (vals.length - 1)) * trainedPart)},${y(v)}`).join(" ")}"/>`;
+  if (edits.length > 1) {
+    const at = edits.map((v, i) => [x(trainedPart + (i / (edits.length - 1)) * (0.98 - trainedPart)), y(v)]);
+    s += `<polyline fill="none" stroke="var(--hl)" stroke-width="1.6" points="${at.map((p) => p.join(",")).join(" ")}"/>` + at.map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="2.2" fill="var(--hl)"/>`).join("");
+  }
+  return s + `<text x="4" y="10" font-size="9" fill="var(--muted)">${fmtN(top, 2)}</text><text x="4" y="${H - 4}" font-size="9" fill="var(--muted)">0</text></svg>`;
 }
 function renderTraining() {
   const t = state.trainer, h = t.history, avg = t.movingAvg();
   $("stepOut").textContent = t.stepCount; $("spsOut").textContent = t.running ? Math.round(t.sps) : 0;
   $("lossOut").textContent = avg ? fmtN(avg.loss) : "–"; $("accOut").textContent = avg ? (100 * avg.acc).toFixed(1) + "%" : "–";
-  $("lossChart").innerHTML = lineChart(h.map((x) => x.loss), "var(--accent)", Math.max(...h.map((x) => x.loss), 0.1));
-  $("accChart").innerHTML = lineChart(h.map((x) => x.acc), "var(--good)", 1, 1);
+  const edits = editPoints(), last = edits[edits.length - 1];
+  $("lossChart").innerHTML = lineChart(h.map((x) => x.loss), "var(--accent)", Math.max(...h.map((x) => x.loss), 0.1), 0, edits.map((p) => p.loss));
+  $("editOut").hidden = edits.length < 2;
+  if (edits.length > 1) $("editOut").innerHTML = `<span style="color:var(--hl)">●</span> your edits: loss <b>${fmtN(edits[0].loss)} → ${fmtN(last.loss)}</b> · acc <b>${(100 * edits[0].acc).toFixed(0)}% → ${(100 * last.acc).toFixed(0)}%</b>`;
+  $("accChart").innerHTML = lineChart(h.map((x) => x.acc), "var(--good)", 1, 1, edits.map((p) => p.acc));
   $("trainBtn").textContent = t.running ? "Pause" : "Train";
   $("outSummary").innerHTML = outputBars(state.trace, true);
 }
@@ -1790,7 +1808,7 @@ const TOUR = [
   { title: "Watch it form", tab: "train", target: () => [$("tvSlider").parentElement, $("tvAttn")],
     body: () => `This is the <b>Training</b> tab. Drag the slider, or press <b>▶ Play</b>, to replay training: the attention grids start out blurry and sharpen as the model learns.` },
   { title: "Your turn", tab: "forward", stage: 1, target: () => [$("detail")],
-    body: () => `Drag any weight with an ↕ cursor up or down and watch the guess and the attention change.<br><br>Then try another task from the <b>Task</b> menu, or train on your own sequences with <b>Your data…</b>. The <b>Take the tour</b> button brings this back.` },
+    body: () => `Drag any weight in a dashed <b>↕ drag to edit</b> grid up or down and watch the guess, the loss and the attention change.<br><br>Then try another task from the <b>Task</b> menu, or train on your own sequences with <b>Your data…</b>. The <b>Take the tour</b> button brings this back.` },
 ];
 function initTour(setTab) {
   const spot = $("tourSpot"), card = $("tourCard"), offer = $("tourOffer"), ask = $("tourConfirm");
@@ -1986,33 +2004,60 @@ function setTraining(on) {
 }
 function stepN(n) { setTraining(false); for (let i = 0; i < n; i++) state.trainer.step(); refresh(); }
 
+/* Hand edits are scored on the same 64 examples every time, so any change is due to the weights alone. */
+let evalCache = null;
+function evaluateModel() {
+  if (!evalCache || evalCache.task !== state.task || evalCache.seed !== state.seed) {
+    const rng = makeRng(state.seed + 3000);
+    evalCache = { task: state.task, seed: state.seed, examples: Array.from({ length: 64 }, () => state.task.gen(rng)) };
+  }
+  let loss = 0, correct = 0, n = 0;
+  for (const ex of evalCache.examples) {
+    const tr = forward(state.model, ex.tokens, ex.maskedPositions, ex.targets);
+    loss += tr.out.loss / evalCache.examples.length; correct += tr.out.correct; n += tr.out.n;
+  }
+  return { loss, acc: correct / n };
+}
+// The scores since the last training step: [before any edit, after drag 1, after drag 2, …].
+function editPoints() {
+  const e = state.edits;
+  return e && e.model === state.model && e.step === state.trainer.stepCount ? e.pts : [];
+}
+
 /* drag a weight cell up or down to change it; the whole trace recomputes as you move */
 function startWeightDrag(e) {
   const td = e.target.closest("td[data-w]");
   if (!td || e.button !== 0) return;
   e.preventDefault();
   const { name, t } = state.model.list[+td.dataset.w], data = t.v.data, i = +td.dataset.wi, tip = $("tip");
-  let from = null, value, lastY = e.clientY, frame = 0;       // from stays null until the pointer moves
+  let from = null, value, lastY = e.clientY, frame = 0, pts = null;   // from stays null until the pointer moves
   const show = (x, y) => {
-    tip.innerHTML = `${esc(name)}[${Math.floor(i / t.v.cols)},${i % t.v.cols}] = <b>${fmtN(value)}</b> (was ${fmtN(from)})`;
-    tip.style.display = "block"; tip.style.left = x + 14 + "px"; tip.style.top = y + 14 + "px";
+    const was = pts[pts.length - 2], now = pts[pts.length - 1], pct = (a) => (100 * a).toFixed(0) + "%";
+    tip.innerHTML = `${esc(name)}[${Math.floor(i / t.v.cols)},${i % t.v.cols}] = <b>${fmtN(value)}</b> (was ${fmtN(from)})<br>loss ${fmtN(was.loss)} → <b>${fmtN(now.loss)}</b><br>accuracy ${pct(was.acc)} → <b>${pct(now.acc)}</b><br>(on 64 fixed examples)`;
+    tip.style.display = "block"; tip.style.left = x + 14 + "px"; tip.style.top = Math.min(y + 14, innerHeight - tip.offsetHeight - 6) + "px";
   };
+  const rescore = () => { pts[pts.length - 1] = evaluateModel(); refresh(); };
   const move = (ev) => {
     if (from === null) {
       if (ev.clientY === lastY) return;                       // a plain click changes and pauses nothing
       setTraining(false); from = value = data[i];
+      pts = editPoints().slice();
+      if (!pts.length) pts.push(evaluateModel());
+      pts.push(pts[pts.length - 1]);                          // this drag's point, updated as you move
+      state.edits = { model: state.model, step: state.trainer.stepCount, pts };
       state.drag = true; applyHover(); $("infoPop").style.display = "none";
     }
     value += (lastY - ev.clientY) * (ev.shiftKey ? 0.001 : 0.02);   // up = larger; Shift = fine, from here on
-    lastY = ev.clientY; data[i] = value; show(ev.clientX, ev.clientY);
-    if (!frame) frame = requestAnimationFrame(() => { frame = 0; refresh(); show(ev.clientX, ev.clientY); });
+    lastY = ev.clientY; data[i] = value;
+    const x = ev.clientX, y = ev.clientY;
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; rescore(); show(x, y); });
   };
   const end = () => {
     window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
     if (from === null) return;
     cancelAnimationFrame(frame); state.drag = false; tip.style.display = "none";
-    if (value !== from) state.trainer.weightsEdited();
-    refresh();
+    if (value !== from) state.trainer.weightsEdited(); else pts.pop();
+    if (value !== from) rescore(); else refresh();
   };
   window.addEventListener("pointermove", move); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
 }
@@ -2055,7 +2100,7 @@ function importWeights(text) {
     if (p.rows !== t.v.rows || p.cols !== t.v.cols || p.data.length !== t.v.data.length || !p.data.every(Number.isFinite)) throw new Error("bad shape or values in " + name);
   }
   for (const { name, t } of state.model.list) t.v.data.set(o.params[name].data);
-  state.trainer.resetOptimizer(); state.trainer.resetRecording(); tvStopPlay(); state.tv.at = null; refresh();
+  state.edits = null; state.trainer.resetOptimizer(); state.trainer.resetRecording(); tvStopPlay(); state.tv.at = null; refresh();
 }
 function showTests() {
   const res = runSelfTests(), failed = res.filter((r) => !r.pass);
@@ -2129,7 +2174,7 @@ function initUI() {
   };
   $("snapSel").onchange = (e) => {
     if (e.target.value === "") return;
-    setTraining(false); tvStopPlay(); state.tv.at = null; state.trainer.restore(state.snapshots[+e.target.value]); e.target.value = ""; refresh();
+    setTraining(false); tvStopPlay(); state.tv.at = null; state.edits = null; state.trainer.restore(state.snapshots[+e.target.value]); e.target.value = ""; refresh();
   };
 
   // Tabs. The training controls (footer) are shared: on the Training tab they move to the top.

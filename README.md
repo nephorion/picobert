@@ -17,7 +17,7 @@ Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, work
 
 ## Default task and editing weights
 
-The page opens on **Twin pairs**: every token appears twice in a row, so a masked token can only be read from its neighbour in the pair, and a head has to find it. On the **Forward pass** tab you can **drag any weight** in the left panel up or down (cells with an ↕ cursor; hold Shift for fine steps) and watch the forward pass recompute. Dragging pauses training; save a snapshot first if you want to get back. For the embeddings stage, dragging a looked-up row edits the underlying token or position table.
+The page opens on **Twin pairs**: every token appears twice in a row, so a masked token can only be read from its neighbour in the pair, and a head has to find it. On the **Forward pass** tab you can **drag any weight** in the left panel up or down (dashed grids marked ↕, hold Shift for fine steps; steps that have them are marked ↕ in the pipeline strip) and watch the forward pass recompute. The loss and accuracy on 64 fixed examples follow your edit, beside the pointer and as a highlighted line on the training graphs. Dragging pauses training; save a snapshot first if you want to get back. For the embeddings stage, dragging a looked-up row edits the underlying token or position table.
 
 Twin pairs, 3000 steps, seeds 1–10: nine reach 100 % masked accuracy by step 1000, with the best head putting 0.64–0.94 of a masked position's attention on its twin. Seed 5 is the exception (about 60 % accuracy at step 3000). This built-in task never hides both twins; the *Twin pairs* example set under *Your data…* can, which is why its ceiling and measurements differ.
 
