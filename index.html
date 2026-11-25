@@ -1732,7 +1732,8 @@ function renderChips() {
     return `<div class="chip${masked ? " m" : ""}" data-tok="${i}"><span>${i}</span><div class="ct" data-toggle="${i}" title="click to toggle [MASK]">${masked ? "[MASK]" : esc(V[t])}</div><select data-set="${i}" title="true token at this position">${V.map((v, k) => k === MASK_ID ? "" : `<option value="${k}"${k === t ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>`;
   }).join("");
   $("hint").textContent = state.task.hint;
-  $("taskName").textContent = state.task.name.replace(" (start here)", "");   // that label is for the menu $("taskNote").textContent = state.task.hint;
+  $("taskName").textContent = state.task.name.replace(" (start here)", "");   // that label is for the menu
+  $("taskNote").textContent = state.task.hint;
 }
 function renderExamples() {
   $("exampleSets").innerHTML = EXAMPLE_SETS.map((x) => {
