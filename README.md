@@ -5,6 +5,8 @@
 
 **Live demo:** https://nephorion.github.io/picobert/
 
+![The forward-pass view after 3000 steps on the Twin pairs example set: head 2 mostly attends to each token's twin](docs/screenshot.png)
+
 Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, works offline). It runs a deliberately tiny BERT-style encoder (d_model 6, 3 heads of width 2) written in plain JS with a hand-rolled matrix autograd, and trains it live on toy masked-token tasks. The **pipeline strip** steps through one forward pass (←/→, Prev/Next/Play); the **left panel** shows every intermediate matrix of the selected stage with real numbers, and hovering any computed cell shows the arithmetic that produced it and highlights its inputs. The **heads panel** (right) shows, per head, the query (solid) and key (dashed) vectors as 2D arrows (hover a query to see its projection onto each key), the attention heatmap, attention lines, and optionally the W_QK / W_OV circuit matrices; each head can be ablated. The **bottom panel** trains (Train / Step ×1 / Step ×100), plots loss and masked-token accuracy, shows predictions at the masked positions, and saves/restores weight snapshots to compare before and after.
 
 **Your own training data:** choose *Your data…* in the task menu, then paste or upload sequences, one per line, exactly 8 tokens separated by spaces or commas (max 15 distinct tokens). JSON lines (`{"tokens":[…],"mask":[2,5]}`) can fix the masked positions; otherwise 1–2 random positions are masked each time. Loading data resets the model. Every element has an **ⓘ icon**: hover it (or click to keep it open) for an explanation of the stage, matrix, control or chart next to it; the *How to read this page* box at the top gives a 2-minute tour and can be collapsed (it remembers). **Export/Import weights** writes JSON that `reference.py` (NumPy only, `uv run reference.py weights.json --ids …`) can re-run independently to check the page's forward pass.
@@ -28,3 +30,7 @@ Five ready-made sets, each with a description, what to expect, and its accuracy 
 ## Attention on task 1
 
 Do not expect a clean previous/next-token head. The model solves the task, but because it knows both a token and its position, any unmasked token determines the answer, so heads often attend at offsets like ±2 or ±3 or spread out. Across 30 seeds and several lr / batch / init settings, the best head put 0.25–0.47 of its attention on ±1 (uniform would be ≈ 0.29). The spec's acceptance criterion 7 was relaxed to match.
+
+## License
+
+[MIT](LICENSE) © 2026 Nephorion
