@@ -30,6 +30,8 @@ header{padding-right:68px;min-height:44px}
 .gh-corner{position:absolute;top:0;right:0;width:60px;height:60px;z-index:10;clip-path:polygon(0 0,100% 0,100% 100%)}
 .gh-corner svg{display:block;fill:var(--fg)}
 .gh-corner path.mark{fill:var(--bg)}
+/* clip-path also clips the focus outline, so recolour the triangle on keyboard focus */
+.gh-corner:focus-visible svg{fill:var(--accent)}
 header h1{font-size:15px;margin:0 8px 0 0}
 header label{display:flex;gap:5px;align-items:center;color:var(--muted)}
 header input[type=number]{width:70px}
