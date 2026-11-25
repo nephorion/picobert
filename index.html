@@ -1802,7 +1802,7 @@ const TOUR = [
       if (!trained()) return intro + `The model is untrained. Go <b>Back</b> and train it to see a pattern.`;
       const a = twinAttention(), best = a.indexOf(Math.max(...a));
       return intro + (a[best] >= 0.5
-        ? `<b style="color:${headColor(best)}">Head ${best + 1}</b> found the twin: for the hidden letter it puts <b>${Math.round(100 * a[best])}%</b> of its attention there.`
+        ? `<b style="color:${headColor(best)}">Head ${best + 1}</b> found the twin: ${state.trace.maskedPos.length ? "for the hidden letter" : "on average"} it puts <b>${Math.round(100 * a[best])}%</b> of its attention there.`
         : `No single head puts most of its attention on the twin for this example (best: ${Math.round(100 * a[best])}%). More training may sharpen it, or the work may be shared between heads.`);
     } },
   { title: "Watch it form", tab: "train", target: () => [$("tvSlider").parentElement, $("tvAttn")],
@@ -1892,7 +1892,7 @@ function initTour(setTab) {
   $("tourNext").onclick = next; $("tourBack").onclick = back; $("tourSkip").onclick = end;
   // Capture phase, so that during the tour the arrow keys move the tour and not the pipeline.
   window.addEventListener("keydown", (e) => {
-    if (at < 0 || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (at < 0 || (e.key !== "Escape" && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) return;
     if (e.key === "ArrowRight") next(); else if (e.key === "ArrowLeft") back(); else if (e.key === "Escape") end(); else return;
     e.preventDefault(); e.stopPropagation();
   }, true);
@@ -2159,7 +2159,7 @@ function initUI() {
   });
   $("heads").onchange = (e) => {
     if (e.target.id === "circToggle") { state.showCirc = e.target.checked; refresh(); }
-    else if (e.target.dataset.ablate !== undefined) { state.model.ablate[+e.target.dataset.ablate] = e.target.checked; refresh(); }
+    else if (e.target.dataset.ablate !== undefined) { state.model.ablate[+e.target.dataset.ablate] = e.target.checked; state.edits = null; refresh(); }
   };
 
   $("detail").onpointerdown = startWeightDrag;
