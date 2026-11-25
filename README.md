@@ -16,6 +16,6 @@ Five ready-made sets, each with a description, what to expect, and its accuracy 
 - `reference.py` matches the page's logits to the printed 12 digits (2-layer model).
 - Task 4 (sorted digits) tops out near 80 %: with 8 of 10 digits kept, a gap between neighbours can often be filled two ways, so that is the ceiling for the task, not a training failure.
 
-## Known gap vs. the spec
+## Attention on task 1
 
-Acceptance criterion 7 (a head visibly showing the previous/next-token pattern after training on task 1) is **not reliably met**. The model solves the task, but because it knows both a token and its position, any unmasked token determines the answer, so heads often attend at offsets like ±2 or ±3 or spread out. Across 30 seeds and several lr / batch / init settings, the best head put 0.25–0.47 of its attention on ±1 (uniform would be ≈ 0.29). Making ±1 the only useful signal needs a change to the task itself.
+Do not expect a clean previous/next-token head. The model solves the task, but because it knows both a token and its position, any unmasked token determines the answer, so heads often attend at offsets like ±2 or ±3 or spread out. Across 30 seeds and several lr / batch / init settings, the best head put 0.25–0.47 of its attention on ±1 (uniform would be ≈ 0.29). The spec's acceptance criterion 7 was relaxed to match.

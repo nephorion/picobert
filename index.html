@@ -612,7 +612,7 @@ const LETTERS = ["a", "b", "c", "d", "e", "f"];
 const BUILTIN_TASKS = [
   {
     id: "prev", name: "1. Previous token (cyclic walk)", vocab: ["[MASK]", ...LETTERS],
-    hint: "Sequence is a cyclic walk a→b→c→d→e→f→a from a random start, so a masked token is its left neighbour +1 (or its right neighbour −1). Expect a head attending to position i−1 or i+1.",
+    hint: "Sequence is a cyclic walk a→b→c→d→e→f→a from a random start, so a masked token is its left neighbour +1 (or its right neighbour −1). Any visible token determines the answer, so heads may attend to i−1 or i+1, to other offsets, or spread out.",
     gen(rng) {
       const start = rng.int(6), L = CONFIG.seq_len;
       const truth = Array.from({ length: L }, (_, i) => 1 + ((start + i) % 6));

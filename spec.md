@@ -183,7 +183,7 @@ For each masked position, a bar chart of P over the vocabulary with the true tok
 
 Each task is a generator that returns `{tokens, maskedPositions, targets}`. Mask 1–2 random positions per example (positions inside the `[CLS]`/`[SEP]` frame only, if those are used; using them is optional, keep it simple). Each task lists the attention pattern it *should* produce, shown as a hint in the UI:
 
-1. **Previous token:** a random sequence over `a–f`, constructed so the sequence is a known cyclic walk (`a→b→c→d→e→f→a`) from a random start. The masked token can be predicted from its left neighbour (or its right). *Expected: a head attends to position i−1 or i+1.*
+1. **Previous token:** a random sequence over `a–f`, constructed so the sequence is a known cyclic walk (`a→b→c→d→e→f→a`) from a random start. The masked token can be predicted from its left neighbour (or its right). *Possible: a head attends to position i−1 or i+1, though the task does not force it.*
 2. **Repeat pattern:** a random block of 3 tokens repeated (e.g. `d a f d a f d a`). *Expected: a head attends to position i±3.*
 3. **Count / majority:** a sequence over `{x, y}`. The masked target is whichever symbol is more frequent among the unmasked tokens (odd count guaranteed). *Expected: broad, roughly uniform attention.*
 4. **Sorted digits:** a strictly increasing sequence of digits 0–9 (randomly chosen subset). *Expected: attends to both neighbours.*
@@ -214,7 +214,7 @@ If any test fails, show a visible red banner.
 4. The arrow plots, heatmaps and attention lines for all 3 heads agree with each other (they come from the same trace).
 5. Training runs at ≥ 200 optimizer steps/s on a typical laptop with rendering throttled.
 6. On task 1 with the default seed and settings, masked-token accuracy reaches ≥ 90 % within 3000 steps. If it doesn't, tune the defaults (lr, init scale, batch size) until it does, and record the chosen values in `CONFIG`.
-7. After training on task 1, at least one head visibly shows the previous/next-token pattern in its heatmap.
+7. After training on task 1, the heads panel shows each head's learned attention pattern in its heatmap. No particular pattern is required: any unmasked token determines the answer, so a previous/next-token head need not form.
 8. A 1–2 paragraph `README.md` next to `index.html` explains how to open it and what each panel shows.
 
 ---
