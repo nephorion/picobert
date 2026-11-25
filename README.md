@@ -6,6 +6,10 @@ Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, work
 
 **Your own training data:** choose *Your data…* in the task menu, then paste or upload sequences, one per line, exactly 8 tokens separated by spaces or commas (max 15 distinct tokens). JSON lines (`{"tokens":[…],"mask":[2,5]}`) can fix the masked positions; otherwise 1–2 random positions are masked each time. Loading data resets the model. Every element has an **ⓘ icon**: hover it (or click to keep it open) for an explanation of the stage, matrix, control or chart next to it; the *How to read this page* box at the top gives a 2-minute tour and can be collapsed (it remembers). **Export/Import weights** writes JSON that `reference.py` (NumPy only, `uv run reference.py weights.json --ids …`) can re-run independently to check the page's forward pass.
 
+## Training tab
+
+The **Training** tab shows how the weights change, with the training controls moved to the top. **One training step** lays out the last optimizer step: the batch and its predictions, the loss, gradient clipping, and for any weight you click, the Adam arithmetic that moved it. **History over training** plots loss, accuracy, and each tensor's weight, gradient or update size. **Replay** scrubs through saved checkpoints to show attention forming on the current input and token or position embeddings moving (2D PCA projection). Checkpoints are taken every 5 steps, less often on long runs, and are cleared by a model reset or weight import.
+
 ## Example training sets (choose *Your data…*)
 
 Five ready-made sets, each with a description, what to expect, and its accuracy ceiling; each can be loaded in one click or downloaded to see the file format. Measured after 3000 steps (3 seeds, best head's attention on the expected position): **Twin pairs** 0.80–0.95 on the twin; **Country → capital** (JSON lines with a fixed mask) 0.51–0.87 on the previous token; **Mirror** ≈ 0.74 on position 7−i; **Repeat every 4** 0.71–0.89 at ±4; **Days of the week** only 0.07–0.20 on the neighbours (any visible day determines the answer, so it makes a useful contrast).
