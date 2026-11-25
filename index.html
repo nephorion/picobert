@@ -1,0 +1,1625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiny BERT Visualizer</title>
+<style>
+:root{
+  --bg:#f7f7f9; --panel:#ffffff; --fg:#1b1d23; --muted:#667085; --line:#d9dce3;
+  --accent:#2563eb; --hl:#e11d48; --bad:#b91c1c; --good:#15803d;
+  --h0:#8b5cf6; --h1:#0d9488; --h2:#db2777;
+  --chip:#eef0f5; --mask:#fde68a;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14161b; --panel:#1d2027; --fg:#e8eaf0; --muted:#98a2b3; --line:#343944;
+    --accent:#60a5fa; --hl:#fb7185; --bad:#f87171; --good:#4ade80;
+    --h0:#a78bfa; --h1:#2dd4bf; --h2:#f472b6;
+    --chip:#2a2e38; --mask:#713f12;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,select,input,textarea{font:inherit;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:3px 8px}
+button{cursor:pointer} button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0 8px 0 0}
+header label{display:flex;gap:5px;align-items:center;color:var(--muted)}
+header input[type=number]{width:70px}
+#banner{background:var(--bad);color:#fff;padding:8px 14px;font-weight:600}
+section,aside,footer,nav{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+#seqbar{margin:8px 14px 0;padding:8px 10px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+#chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:flex;flex-direction:column;align-items:stretch;gap:2px;font-size:11px;color:var(--muted);text-align:center}
+.chip .ct{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:4px 8px;cursor:pointer;color:var(--fg);font-weight:600;min-width:46px}
+.chip.m .ct{background:var(--mask)}
+.chip select{padding:0 2px;font-size:11px}
+#hint{color:var(--muted);flex:1;min-width:240px}
+#dataPanel{margin:8px 14px 0;padding:8px 10px}
+#dataPanel textarea{width:100%;height:90px;font-family:ui-monospace,monospace;font-size:12px}
+#strip{margin:8px 14px 0;padding:6px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#strip .st{border-radius:14px;padding:3px 10px}
+#strip .st.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+#strip .sep{flex:1}
+#stageTitle{margin:6px 14px 0;color:var(--muted)}
+#stageTitle b{color:var(--fg)}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:10px;margin:8px 14px}
+@media (max-width:1100px){main{grid-template-columns:minmax(0,1fr)}}
+#detail,#heads{padding:10px;overflow:auto;max-height:78vh;min-height:300px}
+.eq{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:0 0 14px}
+.eq .op{font-size:18px;color:var(--muted)}
+.row-title{font-weight:600;margin:10px 0 4px}
+.mwrap{display:inline-block;vertical-align:top}
+.mtitle{font-size:12px}.mtitle .shape{color:var(--muted);margin-left:4px}
+.formula{font-size:10.5px;color:var(--muted);max-width:340px}
+table.mat{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:11px;margin:2px 0}
+table.mat th{font-weight:500;color:var(--muted);padding:1px 4px;font-size:10px;white-space:nowrap}
+table.mat thead th{text-align:center}
+table.mat tbody th{text-align:right}
+table.mat td{padding:2px 4px;text-align:right;border:1px solid var(--line);min-width:38px;cursor:crosshair}
+.mwrap.small table.mat td{min-width:28px;padding:1px 3px;font-size:10px}
+.legend{display:flex;gap:4px;align-items:center;font-size:9.5px;color:var(--muted)}
+.legend .bar{width:50px;height:6px;border-radius:3px}
+.bar.div{background:linear-gradient(90deg,rgba(37,99,235,.8),rgba(127,127,127,.1),rgba(234,88,12,.8))}
+.bar.seq{background:linear-gradient(90deg,rgba(22,163,74,0),rgba(22,163,74,.8))}
+td.hl{outline:2px solid var(--hl);outline-offset:-2px}
+td.hlsrc{outline:3px solid var(--fg);outline-offset:-3px}
+.tokhl{outline:2px solid var(--hl);outline-offset:1px;border-radius:3px}
+svg text.tokhl{fill:var(--hl);font-weight:700;outline:none}
+#tip{position:fixed;display:none;max-width:560px;background:var(--fg);color:var(--bg);padding:6px 9px;border-radius:6px;font:12px/1.4 ui-monospace,monospace;z-index:20;pointer-events:none;box-shadow:0 4px 14px #0004}
+.hcols{display:flex;gap:8px;flex-wrap:wrap}
+.hcol{flex:1;min-width:210px;overflow:hidden;border-top:4px solid var(--hc);padding-top:4px}
+.hcol h3{margin:0 0 4px;font-size:13px;color:var(--hc);display:flex;justify-content:space-between;align-items:center}
+.hcol h3 label{font-weight:400;color:var(--muted);font-size:11px}
+.hcol .mwrap table.mat td{min-width:0;padding:1px 2px;font-size:9px}
+.hcol .mwrap table.mat th{padding:1px 2px;font-size:8px}
+.hcol svg{width:100%;height:auto;display:block;margin-bottom:4px}
+.qgroup .proj{display:none}.qgroup:hover .proj{display:block}
+.qgroup:hover .qarrow{stroke-width:3}
+.caption{font-size:10.5px;color:var(--muted)}
+footer{margin:0 14px 14px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+footer .grp{display:flex;flex-direction:column;gap:5px}
+footer .btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.stat{color:var(--muted)} .stat b{color:var(--fg);font-variant-numeric:tabular-nums}
+.chart{border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+#tests{margin:0 14px 14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+#tests .pass{color:var(--good)} #tests .fail{color:var(--bad);font-weight:600}
+.bars{display:flex;gap:10px;flex-wrap:wrap}
+.bars .bchart{font-size:11px}
+.bars svg{display:block}
+
+.i{display:inline-flex;width:14px;height:14px;border-radius:50%;border:1px solid var(--muted);color:var(--muted);font:700 10px/1 Georgia,serif;align-items:center;justify-content:center;cursor:help;margin-left:4px;vertical-align:middle;flex:none;user-select:none}
+.i:hover,.i:focus,.i.on{background:var(--accent);border-color:var(--accent);color:#fff;outline:none}
+#infoPop{position:fixed;display:none;max-width:400px;background:var(--panel);color:var(--fg);border:1px solid var(--accent);border-radius:8px;padding:8px 11px;font:12.5px/1.45 system-ui,sans-serif;z-index:30;box-shadow:0 6px 22px #0005}
+#infoPop b.t{display:block;margin-bottom:3px;color:var(--accent)}
+#infoPop code{background:var(--chip);padding:0 3px;border-radius:3px;font-size:11.5px}
+#infoPop .pin{margin-top:5px;font-size:10.5px;color:var(--muted)}
+#guide{margin:8px 14px 0;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+#guide summary{cursor:pointer}
+#guide .gcols{display:flex;gap:24px;flex-wrap:wrap;margin-top:6px}
+#guide .gcols>div{flex:1;min-width:280px}
+#guide ol,#guide ul{margin:4px 0 4px 18px;padding:0}
+.sw{display:inline-block;width:26px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px;border:1px solid var(--line)}
+.excards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin:6px 0}
+.excard{border:1px solid var(--line);border-radius:6px;padding:6px 9px;display:flex;flex-direction:column;gap:3px}
+.excard pre{margin:2px 0;padding:4px 6px;background:var(--bg);border-radius:4px;font-size:10.5px;overflow:auto;max-height:64px}
+.excard .btns{display:flex;gap:5px;margin-top:auto}
+.excard.on{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tiny BERT Visualizer</h1>
+  <label>Task<span data-ic="task"></span> <select id="taskSel"></select></label>
+  <label>Layers<span data-ic="layers"></span> <select id="layersSel"><option>1</option><option>2</option></select></label>
+  <label id="layerWrap" hidden>View layer<span data-ic="viewlayer"></span> <select id="layerSel"></select></label>
+  <label>Seed<span data-ic="seed"></span> <input id="seed" type="number"></label>
+  <button id="resetBtn">Reset model</button><span data-ic="reset" style="margin-left:-8px"></span>
+  <label>Decimals<span data-ic="decimals"></span> <select id="decSel"><option>2</option><option>3</option></select></label>
+  <button id="testBtn">Run self-tests</button><span data-ic="selftests" style="margin-left:-8px"></span>
+  <button id="exportBtn">Export weights</button><span data-ic="export" style="margin-left:-8px"></span>
+  <button id="importBtn">Import weights</button><span data-ic="import" style="margin-left:-8px"></span>
+  <input id="importFile" type="file" accept=".json,application/json" hidden>
+</header>
+<div id="banner" hidden></div>
+<details id="guide" open>
+  <summary><b>How to read this page</b> <span class="caption">— every <span class="i" style="cursor:default">i</span> icon explains the thing next to it; hover it, or click to keep it open.</span></summary>
+  <div class="gcols">
+    <div>
+      <b>What you are looking at</b>
+      <p style="margin:4px 0">A tiny BERT: 8 tokens in, a few of them hidden as <code>[MASK]</code>, and the model learns to guess the hidden ones. It is so small (6 numbers per token) that you can see every single number it computes. Nothing here is useful NLP — the point is to build intuition for what attention does.</p>
+      <b>Colours</b>
+      <div><span class="sw" style="background:linear-gradient(90deg,rgba(37,99,235,.8),rgba(127,127,127,.1),rgba(234,88,12,.8))"></span>weights &amp; activations: blue = negative, orange = positive, faint = near 0</div>
+      <div><span class="sw" style="background:linear-gradient(90deg,rgba(22,163,74,0),rgba(22,163,74,.8))"></span>probabilities (softmax outputs): darker green = closer to 1</div>
+      <div><span class="sw" style="background:var(--h0)"></span><span class="sw" style="background:var(--h1)"></span><span class="sw" style="background:var(--h2)"></span>one colour per attention head, used everywhere</div>
+    </div>
+    <div>
+      <b>Try this (2 minutes)</b>
+      <ol>
+        <li>Press <b>→</b> a few times (or click the stage buttons) to walk through one forward pass.</li>
+        <li>Hover any number in a computed matrix: the exact arithmetic appears and its inputs light up.</li>
+        <li>In the bottom panel press <b>Step ×100</b> a few times, or <b>Train</b>. Watch the loss fall and the attention heatmaps sharpen.</li>
+        <li>Click a token box in the top bar to mask a different position and see how the prediction changes.</li>
+        <li>Choose the task <b>Your data…</b> to train on your own sequences — ready-made example sets are provided.</li>
+      </ol>
+    </div>
+  </div>
+</details>
+<section id="seqbar">
+  <div><b>Input sequence</b><span data-ic="seq"></span></div>
+  <div id="chips"></div>
+  <button id="randBtn">Random example</button><span data-ic="random" style="margin-left:-6px;margin-top:6px"></span>
+  <div id="hint"></div>
+</section>
+<section id="dataPanel" hidden>
+  <b>Train on your own data</b><span data-ic="data"></span>
+  <div class="caption">Load one of the ready-made example sets below (each teaches a different attention pattern), or paste / upload your own.</div>
+  <div class="excards" id="exampleSets"></div>
+  <div style="margin-top:6px"><b>Your data</b><span data-ic="dataformat"></span> <span class="caption">one sequence per line, exactly 8 tokens separated by spaces or commas; or JSON lines with a fixed mask</span><span data-ic="maskjson"></span></div>
+  <textarea id="dataText" spellcheck="false"></textarea>
+  <div class="btns" style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
+    <button id="dataLoad" class="primary">Load data &amp; reset model</button>
+    <input id="dataFile" type="file" accept=".txt,.csv,.jsonl,.json,text/plain">
+    <span id="dataStatus" class="caption"></span>
+  </div>
+</section>
+<nav id="strip"></nav>
+<div id="stageTitle"></div>
+<main>
+  <section id="detail"></section>
+  <aside id="heads"></aside>
+</main>
+<footer id="train">
+  <div class="grp">
+    <div class="btns">
+      <button id="trainBtn" class="primary">Train</button><span data-ic="train"></span>
+      <button id="step1">Step ×1</button>
+      <button id="step100">Step ×100</button><span data-ic="step"></span>
+    </div>
+    <div class="btns">
+      <label>lr<span data-ic="lr"></span> <input id="lrIn" type="number" step="0.001" min="0" style="width:80px"></label>
+      <label><input id="clipIn" type="checkbox"> clip grad norm 1.0<span data-ic="clip"></span></label>
+    </div>
+    <div class="stat">step <b id="stepOut">0</b> · <b id="spsOut">0</b> steps/s<span data-ic="sps"></span></div>
+    <div class="stat">loss<span data-ic="loss"></span> <b id="lossOut">–</b> · masked acc<span data-ic="acc"></span> <b id="accOut">–</b></div>
+    <div class="btns">
+      <button id="snapBtn">Save snapshot</button><span data-ic="snap"></span>
+      <select id="snapSel"><option value="">snapshots…</option></select>
+    </div>
+  </div>
+  <div class="grp"><span class="caption">loss (moving avg)<span data-ic="losschart"></span></span><div id="lossChart"></div></div>
+  <div class="grp"><span class="caption">masked-token accuracy (moving avg)<span data-ic="accchart"></span></span><div id="accChart"></div></div>
+  <div class="grp" style="flex:1;min-width:260px"><span class="caption">current example – predictions at masked positions<span data-ic="outbars"></span></span><div id="outSummary"></div></div>
+</footer>
+<details id="tests"><summary><span id="testsSummary">Self-tests</span><span data-ic="tests"></span></summary><div id="testsBody"></div></details>
+<div id="tip"></div>
+<div id="infoPop"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+ * 1. CONFIG
+ * Everything tunable lives here. The UI exposes only a few of these.
+ * ========================================================================== */
+const CONFIG = {
+  d_model: 6,          // embedding / residual width
+  n_heads: 3,
+  d_head: 2,           // d_model / n_heads; must be 2 for the arrow plots
+  n_layers: 1,         // 1 or 2
+  d_ff: 24,            // 4 x d_model
+  seq_len: 8,          // fixed, no padding
+  max_vocab: 16,       // includes [MASK]
+  ln_eps: 1e-5,
+  emb_std: 0.5,        // token / position embedding init: N(0, 0.5^2)
+  seed: 1,
+  // --- training defaults (tuned so task 1 reaches >= 90% masked accuracy in 3000 steps, see README) ---
+  lr: 0.01,
+  batch: 16,
+  adam: { b1: 0.9, b2: 0.999, eps: 1e-8 },
+  clip: 1.0,           // global gradient-norm clip (can be switched off in the UI)
+  decimals: 2,
+  maxMasked: 2,
+};
+const MASK_ID = 0;     // token id 0 is always [MASK]
+const HEAD_NAMES = ["₁", "₂", "₃"];
+
+/* ==========================================================================
+ * 2. PRNG  (mulberry32: tiny, fast, deterministic)
+ * ========================================================================== */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function makeRng(seed) {
+  const next = mulberry32(seed);
+  return {
+    next,
+    int: (n) => Math.floor(next() * n),
+    uniform: (lo, hi) => lo + (hi - lo) * next(),
+    gauss() {                                   // Box-Muller
+      let u = 0; while (u === 0) u = next();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * next());
+    },
+  };
+}
+
+/* ==========================================================================
+ * 3. MATRIX UTILITIES AND MINIMAL AUTOGRAD
+ * A Mat is {rows, cols, data: Float64Array} (row-major).
+ * A T ("tensor node") wraps a Mat `v`, its gradient `g`, its inputs, and a
+ * `back` closure that pushes `g` into the inputs' gradients.
+ * ========================================================================== */
+class Mat {
+  constructor(rows, cols, data) {
+    this.rows = rows; this.cols = cols;
+    this.data = data || new Float64Array(rows * cols);
+  }
+  get(i, j) { return this.data[i * this.cols + j]; }
+  set(i, j, x) { this.data[i * this.cols + j] = x; }
+  clone() { return new Mat(this.rows, this.cols, Float64Array.from(this.data)); }
+}
+
+// C = A B
+function matmulM(a, b) {
+  const n = a.rows, k = a.cols, m = b.cols, o = new Mat(n, m);
+  for (let i = 0; i < n; i++)
+    for (let p = 0; p < k; p++) {
+      const av = a.data[i * k + p];
+      for (let j = 0; j < m; j++) o.data[i * m + j] += av * b.data[p * m + j];
+    }
+  return o;
+}
+// dst += G Bᵀ     (gradient of A in C = A B)
+function addGBt(dst, g, b) {
+  const n = g.rows, m = g.cols, k = b.rows;
+  for (let i = 0; i < n; i++)
+    for (let p = 0; p < k; p++) {
+      let s = 0;
+      for (let j = 0; j < m; j++) s += g.data[i * m + j] * b.data[p * m + j];
+      dst.data[i * k + p] += s;
+    }
+}
+// dst += Aᵀ G     (gradient of B in C = A B)
+function addAtG(dst, a, g) {
+  const n = a.rows, k = a.cols, m = g.cols;
+  for (let i = 0; i < n; i++)
+    for (let p = 0; p < k; p++) {
+      const av = a.data[i * k + p];
+      for (let j = 0; j < m; j++) dst.data[p * m + j] += av * g.data[i * m + j];
+    }
+}
+function softmaxRowsM(x) {
+  const o = new Mat(x.rows, x.cols);
+  for (let i = 0; i < x.rows; i++) {
+    let mx = -Infinity;
+    for (let j = 0; j < x.cols; j++) mx = Math.max(mx, x.data[i * x.cols + j]);
+    let s = 0;
+    for (let j = 0; j < x.cols; j++) { const e = Math.exp(x.data[i * x.cols + j] - mx); o.data[i * x.cols + j] = e; s += e; }
+    for (let j = 0; j < x.cols; j++) o.data[i * x.cols + j] /= s;
+  }
+  return o;
+}
+
+class T {
+  constructor(v, parents) { this.v = v; this.g = null; this.parents = parents || []; this.back = null; this.info = null; }
+}
+const gradOf = (t) => t.g || (t.g = new Mat(t.v.rows, t.v.cols));
+const leaf = (m) => new T(m);
+
+// Reverse-mode sweep: topologically order the graph, seed d(root)/d(root) = seed, run each `back`.
+function backward(root, seed = 1) {
+  const order = [], seen = new Set();
+  (function visit(t) {
+    if (seen.has(t)) return; seen.add(t);
+    for (const p of t.parents) visit(p);
+    order.push(t);
+  })(root);
+  root.g = new Mat(root.v.rows, root.v.cols); root.g.data.fill(seed);
+  for (let i = order.length - 1; i >= 0; i--) if (order[i].back && order[i].g) order[i].back();
+}
+
+// out = A B                          dA = dOut Bᵀ ,  dB = Aᵀ dOut
+function matmul(a, b) {
+  const out = new T(matmulM(a.v, b.v), [a, b]);
+  out.back = () => { addGBt(gradOf(a), out.g, b.v); addAtG(gradOf(b), a.v, out.g); };
+  return out;
+}
+// out = A + B, where B is either the same shape or a 1×cols bias broadcast over rows.
+//                                    dA = dOut ,  dB = dOut (or its column-sum for a broadcast bias)
+function add(a, b) {
+  const bc = b.v.rows === 1 && a.v.rows > 1;
+  const v = a.v.clone();
+  for (let i = 0; i < v.rows; i++)
+    for (let j = 0; j < v.cols; j++) v.data[i * v.cols + j] += b.v.data[(bc ? 0 : i) * v.cols + j];
+  const out = new T(v, [a, b]);
+  out.back = () => {
+    const ga = gradOf(a), gb = gradOf(b), g = out.g;
+    for (let i = 0; i < g.rows; i++)
+      for (let j = 0; j < g.cols; j++) {
+        const x = g.data[i * g.cols + j];
+        ga.data[i * g.cols + j] += x;
+        gb.data[(bc ? 0 : i) * g.cols + j] += x;
+      }
+  };
+  return out;
+}
+// out = s · A                        dA = s · dOut
+function scale(a, s) {
+  const v = a.v.clone(); for (let i = 0; i < v.data.length; i++) v.data[i] *= s;
+  const out = new T(v, [a]);
+  out.back = () => { const ga = gradOf(a); for (let i = 0; i < ga.data.length; i++) ga.data[i] += s * out.g.data[i]; };
+  return out;
+}
+// out = Aᵀ                           dA = dOutᵀ
+function transpose(a) {
+  const v = new Mat(a.v.cols, a.v.rows);
+  for (let i = 0; i < a.v.rows; i++) for (let j = 0; j < a.v.cols; j++) v.data[j * v.cols + i] = a.v.data[i * a.v.cols + j];
+  const out = new T(v, [a]);
+  out.back = () => {
+    const ga = gradOf(a);
+    for (let i = 0; i < a.v.rows; i++) for (let j = 0; j < a.v.cols; j++) ga.data[i * a.v.cols + j] += out.g.data[j * out.g.cols + i];
+  };
+  return out;
+}
+// out = A[:, c0:c1]                  dA[:, c0:c1] += dOut
+function sliceCols(a, c0, c1) {
+  const w = c1 - c0, v = new Mat(a.v.rows, w);
+  for (let i = 0; i < v.rows; i++) for (let j = 0; j < w; j++) v.data[i * w + j] = a.v.data[i * a.v.cols + c0 + j];
+  const out = new T(v, [a]);
+  out.back = () => {
+    const ga = gradOf(a);
+    for (let i = 0; i < v.rows; i++) for (let j = 0; j < w; j++) ga.data[i * a.v.cols + c0 + j] += out.g.data[i * w + j];
+  };
+  return out;
+}
+// out = [A1 | A2 | …]                dAk = the matching column block of dOut
+function concatCols(list) {
+  const rows = list[0].v.rows, cols = list.reduce((s, t) => s + t.v.cols, 0), v = new Mat(rows, cols);
+  let off = 0;
+  for (const t of list) { for (let i = 0; i < rows; i++) for (let j = 0; j < t.v.cols; j++) v.data[i * cols + off + j] = t.v.data[i * t.v.cols + j]; off += t.v.cols; }
+  const out = new T(v, list);
+  out.back = () => {
+    let o = 0;
+    for (const t of list) {
+      const gt = gradOf(t);
+      for (let i = 0; i < rows; i++) for (let j = 0; j < t.v.cols; j++) gt.data[i * t.v.cols + j] += out.g.data[i * cols + o + j];
+      o += t.v.cols;
+    }
+  };
+  return out;
+}
+// P = softmax(S) per row             dS[i,j] = P[i,j] · (dP[i,j] − Σk dP[i,k]·P[i,k])
+function rowSoftmax(s) {
+  const p = softmaxRowsM(s.v), out = new T(p, [s]);
+  out.back = () => {
+    const gs = gradOf(s), n = p.cols;
+    for (let i = 0; i < p.rows; i++) {
+      let dot = 0;
+      for (let j = 0; j < n; j++) dot += out.g.data[i * n + j] * p.data[i * n + j];
+      for (let j = 0; j < n; j++) gs.data[i * n + j] += p.data[i * n + j] * (out.g.data[i * n + j] - dot);
+    }
+  };
+  return out;
+}
+// y = (x − μ)/√(σ²+ε) · γ + β, per row.
+//   with x̂ = (x−μ)/√(σ²+ε), inv = 1/√(σ²+ε), dx̂ = dy·γ:
+//   dγ = Σrows dy·x̂ ,  dβ = Σrows dy ,  dx = inv · (dx̂ − mean(dx̂) − x̂ · mean(dx̂·x̂))
+function layerNorm(x, gamma, beta, eps = CONFIG.ln_eps) {
+  const n = x.v.cols, R = x.v.rows, v = new Mat(R, n), xhat = new Mat(R, n);
+  const mean = new Float64Array(R), variance = new Float64Array(R), inv = new Float64Array(R);
+  for (let i = 0; i < R; i++) {
+    let m = 0; for (let j = 0; j < n; j++) m += x.v.data[i * n + j]; m /= n;
+    let s = 0; for (let j = 0; j < n; j++) { const d = x.v.data[i * n + j] - m; s += d * d; } s /= n;
+    mean[i] = m; variance[i] = s; inv[i] = 1 / Math.sqrt(s + eps);
+    for (let j = 0; j < n; j++) {
+      const h = (x.v.data[i * n + j] - m) * inv[i];
+      xhat.data[i * n + j] = h; v.data[i * n + j] = h * gamma.v.data[j] + beta.v.data[j];
+    }
+  }
+  const out = new T(v, [x, gamma, beta]);
+  out.info = { mean, variance, xhat };
+  out.back = () => {
+    const gx = gradOf(x), gg = gradOf(gamma), gb = gradOf(beta);
+    for (let i = 0; i < R; i++) {
+      let m1 = 0, m2 = 0;
+      for (let j = 0; j < n; j++) {
+        const dy = out.g.data[i * n + j], h = xhat.data[i * n + j], dxh = dy * gamma.v.data[j];
+        gg.data[j] += dy * h; gb.data[j] += dy; m1 += dxh; m2 += dxh * h;
+      }
+      m1 /= n; m2 /= n;
+      for (let j = 0; j < n; j++) {
+        const dxh = out.g.data[i * n + j] * gamma.v.data[j];
+        gx.data[i * n + j] += inv[i] * (dxh - m1 - xhat.data[i * n + j] * m2);
+      }
+    }
+  };
+  return out;
+}
+// GELU, tanh approximation:  gelu(x) = 0.5·x·(1 + tanh(√(2/π)·(x + 0.044715·x³)))
+//   with u = √(2/π)(x + 0.044715x³), t = tanh(u):
+//   d gelu/dx = 0.5(1+t) + 0.5·x·(1−t²)·√(2/π)·(1 + 3·0.044715·x²)
+const SQ2PI = Math.sqrt(2 / Math.PI);
+const geluScalar = (x) => 0.5 * x * (1 + Math.tanh(SQ2PI * (x + 0.044715 * x * x * x)));
+function gelu(a) {
+  const v = new Mat(a.v.rows, a.v.cols);
+  for (let i = 0; i < v.data.length; i++) v.data[i] = geluScalar(a.v.data[i]);
+  const out = new T(v, [a]);
+  out.back = () => {
+    const ga = gradOf(a);
+    for (let i = 0; i < v.data.length; i++) {
+      const x = a.v.data[i], t = Math.tanh(SQ2PI * (x + 0.044715 * x * x * x));
+      const d = 0.5 * (1 + t) + 0.5 * x * (1 - t * t) * SQ2PI * (1 + 3 * 0.044715 * x * x);
+      ga.data[i] += d * out.g.data[i];
+    }
+  };
+  return out;
+}
+// out[i,:] = table[ids[i], :]        dTable[ids[i], :] += dOut[i, :]
+function gatherRows(table, ids) {
+  const c = table.v.cols, v = new Mat(ids.length, c);
+  ids.forEach((id, i) => { for (let j = 0; j < c; j++) v.data[i * c + j] = table.v.data[id * c + j]; });
+  const out = new T(v, [table]);
+  out.back = () => {
+    const gt = gradOf(table);
+    ids.forEach((id, i) => { for (let j = 0; j < c; j++) gt.data[id * c + j] += out.g.data[i * c + j]; });
+  };
+  return out;
+}
+// loss = −(1/n) Σ_k log softmax(logits[pos_k])[target_k]   over masked positions only
+//   dlogits[pos_k, :] = (softmax(logits[pos_k]) − onehot(target_k)) / n
+function crossEntropyMasked(logits, positions, targets) {
+  const P = softmaxRowsM(logits.v), n = positions.length, perPos = [];
+  let loss = 0, correct = 0;
+  positions.forEach((pos, k) => {
+    const l = -Math.log(Math.max(P.data[pos * P.cols + targets[k]], 1e-300));
+    perPos.push(l); loss += l;
+    let best = 0; for (let j = 1; j < P.cols; j++) if (P.data[pos * P.cols + j] > P.data[pos * P.cols + best]) best = j;
+    if (best === targets[k]) correct++;
+  });
+  if (n) loss /= n;
+  const out = new T(new Mat(1, 1, Float64Array.of(loss)), [logits]);
+  out.info = { P, perPos, correct, n };
+  out.back = () => {
+    if (!n) return;
+    const gl = gradOf(logits), g = out.g.data[0] / n, C = P.cols;
+    positions.forEach((pos, k) => {
+      for (let j = 0; j < C; j++) gl.data[pos * C + j] += g * (P.data[pos * C + j] - (j === targets[k] ? 1 : 0));
+    });
+  };
+  return out;
+}
+
+/* ==========================================================================
+ * 4. MODEL  (parameters, forward pass with trace, loss)
+ * Post-LN encoder, like the original BERT.
+ * ========================================================================== */
+function createModel(cfg, vocabSize, seed) {
+  const rng = makeRng(seed), d = cfg.d_model, list = [];
+  const reg = (name, m) => { const t = leaf(m); t.name = name; list.push({ name, t }); return t; };
+  const xavier = (name, r, c) => {
+    const lim = Math.sqrt(6 / (r + c)), m = new Mat(r, c);
+    for (let i = 0; i < m.data.length; i++) m.data[i] = rng.uniform(-lim, lim);
+    return reg(name, m);
+  };
+  const normal = (name, r, c, std) => {
+    const m = new Mat(r, c); for (let i = 0; i < m.data.length; i++) m.data[i] = std * rng.gauss(); return reg(name, m);
+  };
+  const zeros = (name, c) => reg(name, new Mat(1, c));
+  const ones = (name, c) => { const m = new Mat(1, c); m.data.fill(1); return reg(name, m); };
+  const model = { cfg: { ...cfg }, vocabSize, layers: [], ablate: new Array(cfg.n_heads).fill(false) };
+  model.tokEmb = normal("tokEmb", vocabSize, d, cfg.emb_std);
+  model.posEmb = normal("posEmb", cfg.seq_len, d, cfg.emb_std);
+  for (let l = 0; l < cfg.n_layers; l++) {
+    const p = `l${l}.`;
+    model.layers.push({
+      Wq: xavier(p + "Wq", d, d), bq: zeros(p + "bq", d),
+      Wk: xavier(p + "Wk", d, d), bk: zeros(p + "bk", d),
+      Wv: xavier(p + "Wv", d, d), bv: zeros(p + "bv", d),
+      Wo: xavier(p + "Wo", d, d), bo: zeros(p + "bo", d),
+      ln1g: ones(p + "ln1g", d), ln1b: zeros(p + "ln1b", d),
+      W1: xavier(p + "W1", d, cfg.d_ff), bf1: zeros(p + "bf1", cfg.d_ff),
+      W2: xavier(p + "W2", cfg.d_ff, d), bf2: zeros(p + "bf2", d),
+      ln2g: ones(p + "ln2g", d), ln2b: zeros(p + "ln2b", d),
+    });
+  }
+  // Deliberate simplification: a plain untied linear head. Real BERT adds dense + GELU + LayerNorm
+  // before the vocabulary projection and ties the output weights to the token embedding.
+  model.Wout = xavier("Wout", d, vocabSize);
+  model.bout = zeros("bout", vocabSize);
+  model.list = list;
+  return model;
+}
+
+// Forward pass. Returns a trace holding every intermediate matrix (as Mats) plus the loss node.
+// Rendering reads ONLY this trace and the parameters; it never recomputes the math.
+function forward(model, ids, maskedPos, targets, opts = {}) {
+  const cfg = model.cfg, dh = cfg.d_head, L = ids.length;
+  const tr = { ids: ids.slice(), maskedPos: maskedPos.slice(), targets: targets.slice(), layers: [] };
+  const tokRows = gatherRows(model.tokEmb, ids);
+  const posRows = gatherRows(model.posEmb, Array.from({ length: L }, (_, i) => i));
+  let X = add(tokRows, posRows);                                    // E = TokEmb[t] + PosEmb
+  tr.emb = { tokRows: tokRows.v, posRows: posRows.v, E: X.v };
+  model.layers.forEach((p) => {
+    const lay = { X: X.v, heads: [] };
+    const Q = add(matmul(X, p.Wq), p.bq), K = add(matmul(X, p.Wk), p.bk), V = add(matmul(X, p.Wv), p.bv);
+    Object.assign(lay, { Q: Q.v, K: K.v, V: V.v });
+    const Ohs = [];
+    for (let h = 0; h < cfg.n_heads; h++) {
+      const c0 = h * dh;
+      const Qh = sliceCols(Q, c0, c0 + dh), Kh = sliceCols(K, c0, c0 + dh), Vh = sliceCols(V, c0, c0 + dh);
+      const S = scale(matmul(Qh, transpose(Kh)), 1 / Math.sqrt(dh));       // S_h = Q_h K_hᵀ / √d_h
+      const A = rowSoftmax(S);                                             // A_h = softmax_rows(S_h)
+      let Oh = matmul(A, Vh);                                              // O_h = A_h V_h
+      if (model.ablate[h]) Oh = scale(Oh, 0);                              // "ablate head": zero its output
+      Ohs.push(Oh);
+      const head = { Qh: Qh.v, Kh: Kh.v, Vh: Vh.v, S: S.v, A: A.v, Oh: Oh.v };
+      if (opts.circuits) {                                                 // W_QK = Wq_h Wk_hᵀ ; W_OV = Wv_h Wo_h
+        const Wq = sliceCols(p.Wq, c0, c0 + dh), Wk = sliceCols(p.Wk, c0, c0 + dh), Wv = sliceCols(p.Wv, c0, c0 + dh);
+        const WoRows = new Mat(dh, cfg.d_model);
+        for (let i = 0; i < dh; i++) for (let j = 0; j < cfg.d_model; j++) WoRows.data[i * cfg.d_model + j] = p.Wo.v.data[(c0 + i) * cfg.d_model + j];
+        head.circ = { WQK: matmulM(Wq.v, transpose(Wk).v), WOV: matmulM(Wv.v, WoRows) };
+      }
+      lay.heads.push(head);
+    }
+    const Ocat = concatCols(Ohs), O = add(matmul(Ocat, p.Wo), p.bo);
+    const XO = add(X, O), X1 = layerNorm(XO, p.ln1g, p.ln1b);
+    const pre = add(matmul(X1, p.W1), p.bf1), H = gelu(pre), F = add(matmul(H, p.W2), p.bf2);
+    const X1F = add(X1, F), Xn = layerNorm(X1F, p.ln2g, p.ln2b);
+    Object.assign(lay, {
+      Ocat: Ocat.v, O: O.v, XO: XO.v, ln1: X1.info, X1: X1.v, pre: pre.v, H: H.v, F: F.v,
+      X1F: X1F.v, ln2: Xn.info, Xout: Xn.v,
+    });
+    tr.layers.push(lay);
+    X = Xn;
+  });
+  const logits = add(matmul(X, model.Wout), model.bout);
+  const ce = crossEntropyMasked(logits, maskedPos, targets);
+  tr.out = { logits: logits.v, P: ce.info.P, perPos: ce.info.perPos, loss: ce.v.data[0], correct: ce.info.correct, n: ce.info.n };
+  tr.lossT = ce;
+  return tr;
+}
+
+/* ==========================================================================
+ * 5. TASKS / DATA GENERATORS
+ * A generator returns {tokens, maskedPositions, targets, truth}: `tokens` already has [MASK] in
+ * place, `truth` is the unmasked sequence, targets[k] = truth[maskedPositions[k]].
+ * ========================================================================== */
+function makeExample(truth, pos) {
+  const tokens = truth.slice(); pos.forEach((p) => { tokens[p] = MASK_ID; });
+  return { tokens, maskedPositions: pos.slice(), targets: pos.map((p) => truth[p]), truth: truth.slice() };
+}
+// Rejection-sample `count` distinct positions that satisfy `ok` (so every target stays predictable).
+function pickMask(rng, L, count, ok) {
+  for (;;) {
+    const pos = [];
+    while (pos.length < count) { const p = rng.int(L); if (!pos.includes(p)) pos.push(p); }
+    pos.sort((a, b) => a - b);
+    if (ok(pos)) return pos;
+  }
+}
+const notAdjacent = (p) => p.length < 2 || p[1] - p[0] > 1;
+const nMask = (rng) => 1 + rng.int(CONFIG.maxMasked);
+const LETTERS = ["a", "b", "c", "d", "e", "f"];
+
+const BUILTIN_TASKS = [
+  {
+    id: "prev", name: "1. Previous token (cyclic walk)", vocab: ["[MASK]", ...LETTERS],
+    hint: "Sequence is a cyclic walk a→b→c→d→e→f→a from a random start, so a masked token is its left neighbour +1 (or its right neighbour −1). Any visible token determines the answer, so heads may attend to i−1 or i+1, to other offsets, or spread out.",
+    gen(rng) {
+      const start = rng.int(6), L = CONFIG.seq_len;
+      const truth = Array.from({ length: L }, (_, i) => 1 + ((start + i) % 6));
+      return makeExample(truth, pickMask(rng, L, nMask(rng), notAdjacent));
+    },
+  },
+  {
+    id: "repeat", name: "2. Repeat pattern (period 3)", vocab: ["[MASK]", ...LETTERS],
+    hint: "A random block of 3 tokens repeated (d a f d a f d a). Expect a head attending to position i±3.",
+    gen(rng) {
+      const L = CONFIG.seq_len, block = [0, 1, 2].map(() => 1 + rng.int(6));
+      const truth = Array.from({ length: L }, (_, i) => block[i % 3]);
+      // masked positions must not share a residue mod 3 (otherwise both copies could be masked)
+      return makeExample(truth, pickMask(rng, L, nMask(rng), (p) => p.length < 2 || p[0] % 3 !== p[1] % 3));
+    },
+  },
+  {
+    id: "majority", name: "3. Majority (x / y)", vocab: ["[MASK]", "x", "y"],
+    hint: "One position is masked; its target is whichever of x/y is more frequent among the 7 unmasked tokens (odd, so no ties). Expect broad, roughly uniform attention.",
+    gen(rng) {
+      const L = CONFIG.seq_len, pos = rng.int(L);
+      const rest = Array.from({ length: L - 1 }, () => 1 + rng.int(2));
+      const xs = rest.filter((t) => t === 1).length, maj = xs * 2 > rest.length ? 1 : 2;
+      const truth = rest.slice(); truth.splice(pos, 0, maj);
+      return makeExample(truth, [pos]);
+    },
+  },
+  {
+    id: "sorted", name: "4. Sorted digits", vocab: ["[MASK]", ..."0123456789".split("")],
+    hint: "A strictly increasing sequence of 8 digits chosen from 0–9. Expect attention to both neighbours.",
+    gen(rng) {
+      const L = CONFIG.seq_len, pool = Array.from({ length: 10 }, (_, i) => i);
+      while (pool.length > L) pool.splice(rng.int(pool.length), 1);       // drop random digits until 8 remain
+      return makeExample(pool.map((d) => d + 1), pickMask(rng, L, nMask(rng), notAdjacent));
+    },
+  },
+];
+
+// User-provided data. Lines are plain token lists, or JSON: ["a","b",…] / {"tokens":[…],"mask":[i,j]}.
+function parseDataset(text, L) {
+  const errors = [], rows = [], vocab = ["[MASK]"], seen = new Map();
+  text.split(/\r?\n/).forEach((raw, ln) => {
+    const line = raw.trim(); if (!line || line.startsWith("#")) return;
+    let toks, mask = null;
+    try {
+      if (line[0] === "{" || line[0] === "[") {
+        const o = JSON.parse(line);
+        toks = Array.isArray(o) ? o : o.tokens; mask = Array.isArray(o) ? null : (o.mask || null);
+        toks = toks.map(String);
+      } else toks = line.split(/[\s,]+/).filter(Boolean);
+    } catch (e) { errors.push(`line ${ln + 1}: ${e.message}`); return; }
+    if (toks.length !== L) { errors.push(`line ${ln + 1}: expected ${L} tokens, got ${toks.length}`); return; }
+    if (toks.includes("[MASK]")) { errors.push(`line ${ln + 1}: give the full sequence, not [MASK] (masking is done for you)`); return; }
+    if (mask && (!Array.isArray(mask) || mask.some((m) => !Number.isInteger(m) || m < 0 || m >= L))) { errors.push(`line ${ln + 1}: bad mask positions`); return; }
+    rows.push({ toks, mask });
+  });
+  for (const r of rows) for (const t of r.toks) if (!seen.has(t)) { seen.set(t, vocab.length); vocab.push(t); }
+  if (vocab.length > CONFIG.max_vocab) errors.unshift(`too many distinct tokens: ${vocab.length - 1} (max ${CONFIG.max_vocab - 1})`);
+  const examples = rows.map((r) => ({ truth: r.toks.map((t) => seen.get(t)), mask: r.mask && r.mask.length ? [...new Set(r.mask)].sort((a, b) => a - b) : null }));
+  return { examples, vocab, errors };
+}
+function makeCustomTask(ds, name) {
+  return {
+    id: "custom", name: name || "Your data", vocab: ds.vocab, custom: true, examples: ds.examples,
+    hint: `${ds.examples.length} sequences loaded, ${ds.vocab.length - 1} distinct tokens. Each training example masks 1–2 random positions (or the ones you gave). The model learns whatever pattern your data contains; accuracy is measured on the same stream, so it can memorise a small set.`,
+    gen(rng) {
+      const e = ds.examples[rng.int(ds.examples.length)], L = e.truth.length;
+      return makeExample(e.truth, e.mask || pickMask(rng, L, nMask(rng), () => true));
+    },
+  };
+}
+const pick = (r, arr) => arr[r.int(arr.length)];
+const genLines = (n, seed, fn) => { const r = makeRng(seed); return Array.from({ length: n }, () => fn(r)).join("\n"); };
+const COUNTRIES = [["france", "paris"], ["spain", "madrid"], ["italy", "rome"], ["japan", "tokyo"], ["egypt", "cairo"], ["peru", "lima"]];
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+// Ready-made training sets. Every one was trained in testing; `ceiling` explains accuracy limits.
+const EXAMPLE_SETS = [
+  {
+    id: "pairs", name: "Twin pairs", count: 80,
+    what: "Every token appears twice in a row: x₁ x₁ x₂ x₂ x₃ x₃ x₄ x₄ (letters a–f).",
+    expect: "A masked token is identical to its twin, which is always its neighbour: position i+1 from even positions, i−1 from odd ones. Look for a head with attention on the diagonal just beside the masked row. The clearest ±1 pattern of all the sets.",
+    ceiling: "≈ 91 % — if both twins happen to be masked the answer can't be known.",
+    text: () => genLines(80, 11, (r) => [0, 1, 2, 3].map(() => pick(r, LETTERS)).flatMap((x) => [x, x]).join(" ")),
+  },
+  {
+    id: "capitals", name: "Country → capital (fixed mask)", count: 80,
+    what: "Four random (country, capital) pairs per line, e.g. france paris italy rome … Uses JSON lines with a fixed mask: the capitals (positions 1,3,5,7) are always hidden.",
+    expect: "The model must read the country just before each masked slot: a genuine previous-token head (attention to i−1), then memorise the 6 country→capital facts in its weights. Shows how fixing the mask focuses the task.",
+    ceiling: "≈ 100 %.",
+    text: () => genLines(80, 13, (r) => {
+      const idx = [0, 1, 2, 3, 4, 5];
+      for (let i = 5; i > 0; i--) { const j = r.int(i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+      return JSON.stringify({ tokens: idx.slice(0, 4).flatMap((i) => COUNTRIES[i]), mask: [1, 3, 5, 7] });
+    }),
+  },
+  {
+    id: "weekdays", name: "Days of the week (cyclic walk)", count: 80,
+    what: "Consecutive weekdays from a random start: wed thu fri sat sun mon tue wed. Same idea as built-in task 1, with your own vocabulary (7 tokens).",
+    expect: "A masked day is the day after its left neighbour (or before its right neighbour) — but so is every other visible day, shifted by its distance. So do NOT expect a clean neighbour head: in testing, the best head put only 7–20 % of its attention on the neighbours. A good contrast to Twin pairs, where one position is the only useful one.",
+    ceiling: "≈ 100 %.",
+    text: () => genLines(80, 14, (r) => { const s0 = r.int(7); return Array.from({ length: CONFIG.seq_len }, (_, i) => DAYS[(s0 + i) % 7]).join(" "); }),
+  },
+  {
+    id: "mirror", name: "Mirror (palindrome)", count: 80,
+    what: "Four random letters followed by the same four reversed: a f c d d c f a.",
+    expect: "Position i must look at position 7−i: a clean anti-diagonal in the attention heatmap, something no neighbour-based rule can produce.",
+    ceiling: "≈ 92 % — both halves of a pair can be masked together.",
+    text: () => genLines(80, 12, (r) => { const t = [0, 1, 2, 3].map(() => pick(r, LETTERS)); return [...t, ...t.slice().reverse()].join(" "); }),
+  },
+  {
+    id: "period4", name: "Repeat every 4", count: 60,
+    what: "A block of 4 letters (a–d) repeated twice: b d a c b d a c.",
+    expect: "Each position has one partner exactly 4 steps away: attention at offset ±4 (the two off-diagonals far from the main diagonal).",
+    ceiling: "≈ 92 % — if two partners are masked together.",
+    text: () => genLines(60, 42, (r) => { const b = [0, 1, 2, 3].map(() => pick(r, LETTERS.slice(0, 4))); return Array.from({ length: CONFIG.seq_len }, (_, i) => b[i % 4]).join(" "); }),
+  },
+];
+const SAMPLE_DATA = EXAMPLE_SETS[0].text();
+
+/* ==========================================================================
+ * 6. TRAINER  (Adam, minibatch, optional global-norm clipping)
+ * ========================================================================== */
+class Trainer {
+  constructor(model, task, rng) {
+    this.model = model; this.task = task; this.rng = rng;
+    this.lr = CONFIG.lr; this.clip = true; this.stepCount = 0; this.t = 0;
+    this.history = []; this.recent = []; this.running = false; this.sps = 0;
+    this.resetOptimizer();
+  }
+  resetOptimizer() {
+    this.t = 0;
+    this.m = this.model.list.map(({ t }) => new Float64Array(t.v.data.length));
+    this.v = this.model.list.map(({ t }) => new Float64Array(t.v.data.length));
+  }
+  // One optimizer step: gradients are averaged over the batch.
+  step() {
+    const model = this.model, B = CONFIG.batch, { b1, b2, eps } = CONFIG.adam;
+    for (const { t } of model.list) t.g = new Mat(t.v.rows, t.v.cols);
+    let loss = 0, correct = 0, total = 0;
+    for (let b = 0; b < B; b++) {
+      const ex = this.task.gen(this.rng);
+      const tr = forward(model, ex.tokens, ex.maskedPositions, ex.targets);
+      backward(tr.lossT, 1 / B);
+      loss += tr.out.loss / B; correct += tr.out.correct; total += tr.out.n;
+    }
+    if (this.clip) {
+      let n2 = 0; for (const { t } of model.list) for (const x of t.g.data) n2 += x * x;
+      const norm = Math.sqrt(n2);
+      if (norm > CONFIG.clip) { const s = CONFIG.clip / norm; for (const { t } of model.list) for (let i = 0; i < t.g.data.length; i++) t.g.data[i] *= s; }
+    }
+    this.t++;
+    const c1 = 1 - Math.pow(b1, this.t), c2 = 1 - Math.pow(b2, this.t);
+    model.list.forEach(({ t }, k) => {
+      const m = this.m[k], v = this.v[k], g = t.g.data, w = t.v.data;
+      for (let i = 0; i < w.length; i++) {
+        m[i] = b1 * m[i] + (1 - b1) * g[i];
+        v[i] = b2 * v[i] + (1 - b2) * g[i] * g[i];
+        w[i] -= this.lr * (m[i] / c1) / (Math.sqrt(v[i] / c2) + eps);
+      }
+    });
+    this.stepCount++;
+    this.recent.push({ loss, acc: total ? correct / total : 0 });
+    if (this.recent.length > 50) this.recent.shift();
+    if (this.stepCount % 10 === 0) {
+      const n = this.recent.length;
+      this.history.push({ step: this.stepCount, loss: this.recent.reduce((s, r) => s + r.loss, 0) / n, acc: this.recent.reduce((s, r) => s + r.acc, 0) / n });
+      if (this.history.length > 3000) this.history = this.history.filter((_, i) => i % 2 === 0);
+    }
+    return { loss, acc: total ? correct / total : 0 };
+  }
+  movingAvg() {
+    const n = this.recent.length; if (!n) return null;
+    return { loss: this.recent.reduce((s, r) => s + r.loss, 0) / n, acc: this.recent.reduce((s, r) => s + r.acc, 0) / n };
+  }
+  snapshot() { return { step: this.stepCount, data: this.model.list.map(({ name, t }) => [name, Float64Array.from(t.v.data)]) }; }
+  restore(s) {
+    for (const [name, d] of s.data) this.model.list.find((p) => p.name === name).t.v.data.set(d);
+    this.stepCount = s.step; this.history = this.history.filter((h) => h.step <= s.step); this.recent = [];
+    this.resetOptimizer();
+  }
+}
+
+/* ==========================================================================
+ * 7. SELF-TESTS
+ * ========================================================================== */
+function runSelfTests() {
+  const results = [], push = (name, pass, detail) => results.push({ name, pass: !!pass, detail });
+  const cfg = { ...CONFIG }, task = BUILTIN_TASKS[0], V = task.vocab.length;
+
+  // --- gradient check: autograd vs central finite differences ---
+  try {
+    const model = createModel(cfg, V, 123), rng = makeRng(77);
+    for (const { name, t } of model.list)           // perturb biases / LN params so no gradient is trivially zero
+      if (/\.(b[qkvo]|bf[12]|ln[12][gb])$/.test(name) || name === "bout") for (let i = 0; i < t.v.data.length; i++) t.v.data[i] += 0.1 * rng.gauss();
+    const exs2 = [0, 1, 2].map(() => BUILTIN_TASKS[0].gen(rng)).concat([BUILTIN_TASKS[1].gen(rng)]);   // tasks 1/2 share vocab size 7
+    const lossFn = () => exs2.reduce((s, e) => s + forward(model, e.tokens, e.maskedPositions, e.targets).out.loss, 0) / exs2.length;
+    for (const { t } of model.list) t.g = new Mat(t.v.rows, t.v.cols);
+    for (const e of exs2) backward(forward(model, e.tokens, e.maskedPositions, e.targets).lossT, 1 / exs2.length);
+    let worst = 0, count = 0, worstName = "", h = 1e-5;
+    for (const { name, t } of model.list) {
+      for (let s = 0; s < 3; s++) {
+        const i = rng.int(t.v.data.length), orig = t.v.data[i], an = t.g.data[i];
+        t.v.data[i] = orig + h; const lp = lossFn();
+        t.v.data[i] = orig - h; const lm = lossFn();
+        t.v.data[i] = orig;
+        const num = (lp - lm) / (2 * h), err = Math.abs(an - num) / Math.max(Math.abs(an) + Math.abs(num), 1e-6);
+        count++; if (err > worst) { worst = err; worstName = `${name}[${i}] analytic ${an.toExponential(3)} numeric ${num.toExponential(3)}`; }
+      }
+    }
+    push(`Gradient check (${count} params over ${model.list.length} tensors, h=1e-5)`, worst < 1e-4 && count >= 50, `max relative error ${worst.toExponential(2)} (limit 1e-4)${worst >= 1e-4 ? " at " + worstName : ""}`);
+  } catch (e) { push("Gradient check", false, String(e.stack || e)); }
+
+  // --- softmax rows sum to 1, LayerNorm rows ~ N(0,1), shapes ---
+  try {
+    const model = createModel({ ...cfg, n_layers: 2 }, V, 5), ex = task.gen(makeRng(9));
+    const tr = forward(model, ex.tokens, ex.maskedPositions, ex.targets, { circuits: true });
+    let worstSum = 0;
+    const chk = (M) => { for (let i = 0; i < M.rows; i++) { let s = 0; for (let j = 0; j < M.cols; j++) s += M.get(i, j); worstSum = Math.max(worstSum, Math.abs(s - 1)); } };
+    tr.layers.forEach((l) => l.heads.forEach((h) => chk(h.A))); chk(tr.out.P);
+    push("Softmax rows sum to 1 (attention + output)", worstSum < 1e-9, `max |Σ−1| = ${worstSum.toExponential(2)}`);
+
+    const rr = makeRng(3), x = new Mat(6, 6); for (let i = 0; i < 36; i++) x.data[i] = 3 * rr.gauss() + 2;
+    const g = leaf(new Mat(1, 6)); g.v.data.fill(1); const b = leaf(new Mat(1, 6));
+    const ln = layerNorm(leaf(x), g, b); let wm = 0, wv = 0;
+    for (let i = 0; i < 6; i++) { let m = 0, v = 0; for (let j = 0; j < 6; j++) m += ln.v.get(i, j) / 6; for (let j = 0; j < 6; j++) v += (ln.v.get(i, j) - m) ** 2 / 6; wm = Math.max(wm, Math.abs(m)); wv = Math.max(wv, Math.abs(v - 1)); }
+    push("LayerNorm rows: mean ≈ 0, variance ≈ 1", wm < 1e-9 && wv < 1e-4, `max |mean| = ${wm.toExponential(2)}, max |var−1| = ${wv.toExponential(2)} (ε = 1e-5 makes var slightly < 1)`);
+
+    const L = ex.tokens.length, d = cfg.d_model, dh = cfg.d_head, ff = cfg.d_ff, bad = [];
+    const shape = (n, M, r, c) => { if (M.rows !== r || M.cols !== c) bad.push(`${n}: ${M.rows}×${M.cols} ≠ ${r}×${c}`); };
+    shape("E", tr.emb.E, L, d); shape("tokRows", tr.emb.tokRows, L, d); shape("posRows", tr.emb.posRows, L, d);
+    tr.layers.forEach((l, i) => {
+      for (const k of ["X", "Q", "K", "V", "Ocat", "O", "XO", "X1", "F", "X1F", "Xout"]) shape(`l${i}.${k}`, l[k], L, d);
+      shape(`l${i}.pre`, l.pre, L, ff); shape(`l${i}.H`, l.H, L, ff);
+      if (l.heads.length !== cfg.n_heads) bad.push("head count");
+      l.heads.forEach((h, j) => {
+        for (const k of ["Qh", "Kh", "Vh", "Oh"]) shape(`l${i}.h${j}.${k}`, h[k], L, dh);
+        shape(`l${i}.h${j}.S`, h.S, L, L); shape(`l${i}.h${j}.A`, h.A, L, L);
+        shape(`l${i}.h${j}.WQK`, h.circ.WQK, d, d); shape(`l${i}.h${j}.WOV`, h.circ.WOV, d, d);
+      });
+    });
+    shape("logits", tr.out.logits, L, V); shape("P", tr.out.P, L, V);
+    push("Trace shapes match the spec (2-layer model)", bad.length === 0, bad.length ? bad.join("; ") : "all entries OK");
+  } catch (e) { push("Softmax / LayerNorm / shapes", false, String(e.stack || e)); }
+
+  // --- determinism ---
+  try {
+    const a = createModel(cfg, V, 11), b = createModel(cfg, V, 11), c = createModel(cfg, V, 12);
+    const same = a.list.every((p, i) => p.t.v.data.every((x, j) => x === b.list[i].t.v.data[j]));
+    const diff = a.list.some((p, i) => p.t.v.data.some((x, j) => x !== c.list[i].t.v.data[j]));
+    push("Determinism: same seed → identical init (different seed differs)", same && diff, `same=${same}, differentSeedDiffers=${diff}`);
+  } catch (e) { push("Determinism", false, String(e.stack || e)); }
+  return results;
+}
+
+/* ==========================================================================
+ * Exports for console poking
+ * ========================================================================== */
+const root = typeof window !== "undefined" ? window : globalThis;
+const state = { taskIdx: 0, task: null, tasks: BUILTIN_TASKS.concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, snapshots: [], hover: null };
+root.tinybert = {
+  config: CONFIG, state, forward, createModel, runSelfTests, Trainer, tasks: BUILTIN_TASKS, makeRng, parseDataset,
+  get model() { return state.model; }, get trace() { return state.trace; }, get trainer() { return state.trainer; },
+};
+
+
+/* ==========================================================================
+ * INFO TEXT for the (i) icons. Static strings; key → [title, html body].
+ * ========================================================================== */
+const INFO = {
+  // ----- control bar -----
+  task: ["Task", `The toy problem the model learns. Some tokens are hidden behind <code>[MASK]</code> and the model must guess them from the others — BERT's masked-language-model objective on tiny made-up data.<br>The sentence under the token boxes says which attention pattern to expect. Choose <b>Your data…</b> to train on your own sequences. Changing the task resets the model (the vocabulary changes).`],
+  layers: ["Layers", `How many encoder blocks are stacked. <b>1</b> is easiest to read. With <b>2</b>, layer 2 reads layer 1's output, so heads can <i>compose</i>: one head moves information between tokens and a later head uses it. Changing this resets the model.`],
+  viewlayer: ["View layer", `Which layer the stages 2–10 and the heads panel show. Stage 1 (embeddings) and 11 (output) belong to the whole model.`],
+  seed: ["Seed", `Seeds the random number generator. Same seed → identical starting weights and identical training batches, so a run is reproducible. Try another seed and press <b>Reset model</b>: different starts often find different attention solutions to the same task.`],
+  reset: ["Reset model", `Re-initialises all weights from the seed, zeroes the optimiser and the training curves, and discards snapshots.`],
+  decimals: ["Decimals", `How many decimals matrix cells show (2 or 3). The numbers underneath always keep full precision; the hover explanations use the same rounding.`],
+  selftests: ["Self-tests", `Re-runs the correctness checks: autograd gradients vs finite differences, softmax rows sum to 1, LayerNorm rows have mean 0 / variance 1, trace shapes, and seed determinism. A red banner appears if any fail. They also run once when the page loads.`],
+  export: ["Export weights", `Downloads all weights as JSON. <code>reference.py</code> (NumPy only) can re-run the forward pass from this file so you can check the page against an independent implementation: <code>uv run reference.py weights.json --ids 1 2 0 4 5 6 1 2</code>.`],
+  import: ["Import weights", `Loads a weights JSON exported from this page. The task/vocabulary and the number of layers must match the file, otherwise you will get an error message.`],
+  seq: ["Input sequence", `The 8 tokens fed to the model. <b>Click a token box</b> to toggle <code>[MASK]</code> on that position; the <b>dropdown</b> underneath sets the true token (the answer if it is masked). Only masked positions count for loss and accuracy. Every change re-runs the model so all panels update. Hover a box to highlight that token everywhere.`],
+  random: ["Random example", `Draws a fresh example from the current task's generator (seeded, so the sequence of examples is reproducible).`],
+  // ----- strip / stages -----
+  play: ["Walking through the model", `<b>Prev / Next / Play</b> (or the ← → keys) move between the 11 stages of one forward pass. Play advances every 1.5 s. Stages 2–10 repeat for every layer.`],
+  stage1: ["1 · Embeddings", `Computers need numbers, so every token id is looked up in a learned table <code>TokEmb</code> (one row of 6 numbers per token) and a learned position row <code>PosEmb</code> is added. Without positions, attention has no idea of word order.<br><b>Notice:</b> the same token at two positions has identical <code>TokEmb</code> rows but different <code>E</code> rows.`],
+  stage2: ["2 · Projections", `Three learned 6×6 matrices turn each token's vector into a <b>query</b> ("what am I looking for?"), a <b>key</b> ("what do I contain?") and a <b>value</b> ("what do I hand over if someone attends to me?"). Each is <code>X·W + b</code>. Column pairs belong to heads (coloured bars). Hover any Q/K/V cell to see the dot product behind it.`],
+  stage3: ["3 · Head split", `Q, K and V are cut into 3 slices of 2 columns, one per head. Each head then works independently in its own 2-D space — which is why queries and keys can be drawn as arrows.`],
+  stage4: ["4 · Scores", `Score <code>S[i,j] = q<sub>i</sub>·k<sub>j</sub> / √2</code>: how well token i's query lines up with token j's key. Large positive = pointing the same way. The division by √(head width) keeps scores from growing with width. In the heads panel this is literally the projection of an arrow q onto an arrow k.`],
+  stage5: ["5 · Softmax", `Each row of scores becomes probabilities: <code>exp(score)</code> divided by the row sum. Big scores win almost everything; each row sums to 1. This <code>A</code> is the <b>attention pattern</b> — row i says how much token i looks at every token j. It is the same matrix as the heatmaps in the heads panel.`],
+  stage6: ["6 · Weighted values", `Each token's output is a blend of value vectors, weighted by attention: <code>O = A·V</code>. If token i attends 0.9 to token j, its output is mostly j's value. This is the only place where information moves <i>between</i> tokens.`],
+  stage7: ["7 · Concat + output projection", `The 3 heads' 2-number outputs are glued side by side back into 6 numbers, then mixed by a learned 6×6 matrix <code>Wo</code>. This lets the heads' findings be combined and written back into the shared 6-number vector of each token.`],
+  stage8: ["8 · Residual + LayerNorm 1", `<b>Residual:</b> the attention result is <i>added</i> to the original input (<code>X + O</code>), so each layer only has to learn a correction. <b>LayerNorm</b> then rescales each token's row to mean 0 / variance 1 (then γ, β), which keeps numbers well-behaved. This model is "post-LN", like original BERT.`],
+  stage9: ["9 · Feed-forward", `A small 2-layer network applied to every token <i>separately</i> (no mixing between tokens): 6 → 24 numbers, GELU (a smooth ReLU), 24 → 6. Attention moves information between tokens; this step processes it within each token.`],
+  stage10: ["10 · Residual + LayerNorm 2", `Same pattern as stage 8: add the feed-forward result to its input, then normalise. The output <code>X_out</code> is this layer's result (and the next layer's input, if there is one).`],
+  stage11: ["11 · Output", `A linear layer turns each token's 6 numbers into one score (<i>logit</i>) per vocabulary word; softmax makes them probabilities <code>P</code>. The loss is the average of <code>−ln P[true token]</code> over the <b>masked positions only</b>: low when the model puts high probability on the right answer.`],
+  // ----- heads panel -----
+  heads: ["Attention heads", `A head is one independent attention mechanism. Here each head works in just 2 dimensions, so you can see its queries and keys as arrows, its attention as a heatmap and as lines. All three heads below come from the same forward pass as the left panel. Different heads usually learn different jobs (e.g. "look left", "look at the same token").`],
+  arrows: ["Query / key arrows", `Each token has a query arrow q (solid) and a key arrow k (dashed), drawn from the origin on equal axes so angles are true. A query scores highly against keys that point the same way. <b>Hover a query</b> to see its projection onto every key — the dotted lines and the printed number are the dot products <code>q·k</code> (before the /√2 and the softmax).`],
+  lines: ["Attention lines", `Left column = the token doing the looking (query side), right column = the token being looked at (key side). A line's thickness and opacity are proportional to the attention weight <code>A[i,j]</code>. A thick line from "3:[MASK]" to "2:…" means the masked token mostly reads its left neighbour.`],
+  ablate: ["Ablate a head", `Forces this head's output to zero and re-runs the model. If the loss or the prediction gets much worse, the head matters for this task; if nothing changes, it is redundant. (It only changes the forward pass; training keeps adapting the other weights.)`],
+  circ: ["Circuit matrices", `<b>W_QK = Wq<sub>h</sub>·Wk<sub>h</sub>ᵀ</b> (6×6): which input directions of a query match which input directions of a key — i.e. <i>what the head looks for</i>.<br><b>W_OV = Wv<sub>h</sub>·Wo<sub>h</sub></b> (6×6): what the head <i>writes</i> into the token's vector when it attends to something.<br>Together they describe the head independently of any particular input.`],
+  // ----- training panel -----
+  train: ["Train / Pause", `Runs optimiser steps continuously. Each step draws 16 examples from the task, runs forward and backward passes, averages the gradients, and updates every weight with Adam. The display refreshes ~10 times a second while training runs much faster in between.`],
+  step: ["Single steps", `<b>Step ×1</b> / <b>Step ×100</b> pause continuous training and run exactly that many optimiser steps — good for watching one update change the heatmaps, or for jumping ahead.`],
+  lr: ["Learning rate", `How big each Adam update is. Too high: the loss jumps around or the model gets stuck; too low: learning is slow. 0.01 works well for the built-in tasks. You can change it while training.`],
+  clip: ["Gradient clipping", `If the overall size (norm) of the gradient is above 1.0 it is scaled down to 1.0 before the update. Protects against rare huge gradients; usually changes nothing visible on these tasks.`],
+  sps: ["Steps per second", `Measured optimiser steps per second while training (one step = a batch of 16 examples). Typically 400–500 on a laptop with live rendering.`],
+  loss: ["Loss", `Cross-entropy at masked positions: <code>−ln P[true token]</code>, averaged over masked positions and over the batch, then smoothed over the last 50 steps. A model guessing uniformly over a vocabulary of V tokens scores ln V (e.g. ln 7 ≈ 1.95); a perfect one scores 0.`],
+  acc: ["Masked accuracy", `Fraction of masked tokens whose highest-probability guess is correct, smoothed over the last 50 training batches. It is measured on the training stream; with your own small dataset the model can simply memorise it. Some tasks have a ceiling below 100% because the answer is sometimes not determinable.`],
+  snap: ["Snapshots", `<b>Save snapshot</b> stores the current weights with the step number. Choosing one in the dropdown restores those weights, so you can flip between "before training" and "after training" and watch the attention patterns change. Restoring pauses training and resets the optimiser's memory.`],
+  losschart: ["Loss curve", `Moving average of the loss over training steps. The y-axis maximum is printed in the corner. A flat line near 0 means the task is solved.`],
+  accchart: ["Accuracy curve", `Moving average of masked-token accuracy (0–100%).`],
+  outbars: ["Predictions", `For each masked position: a bar per vocabulary token showing the model's probability <code>P</code>. The true token is the green bar. Below: the guess, whether it is right, and that position's loss <code>−ln P[true]</code>. Hover a bar for its exact value.`],
+  tests: ["Self-tests", `Automated checks of the maths (see the button in the top bar). All should be green; if the banner at the top is red, something in the engine is wrong and the numbers cannot be trusted.`],
+  // ----- data panel -----
+  data: ["Your own training data", `The model learns masked-token prediction on whatever sequences you give it. Each training example picks a sequence, hides 1–2 random positions (or the positions you specify) and asks the model to recover them. So the data should contain a <b>pattern</b> that the visible tokens reveal about the hidden ones — the example sets show several kinds.`],
+  dataformat: ["Data format", `<b>Plain text:</b> one sequence per line, exactly <b>8</b> tokens separated by spaces or commas, e.g. <code>a b c d a b c d</code>. Tokens can be any words; at most 15 distinct tokens overall. Lines starting with <code>#</code> are ignored.<br><b>JSON lines:</b> <code>["a","b",…]</code> or <code>{"tokens":[…],"mask":[2,5]}</code>.<br>Do <i>not</i> write <code>[MASK]</code> yourself — give the full true sequence and the page does the masking. Loading data resets the model.`],
+  maskjson: ["Fixing the masked positions", `With <code>{"tokens":[…8 tokens…],"mask":[1,3,5,7]}</code> the listed positions (0–7) are <i>always</i> the ones hidden for that line. Use it when only certain positions should be predicted — for example always the second word of a pair. Without <code>mask</code>, 1–2 random positions are hidden each time.`],
+  // ----- matrices -----
+  scale: ["Colour scale", `Blue = negative, orange = positive, intensity relative to the largest absolute value in <i>that matrix</i> (so colours are comparable within a matrix, not between matrices). Green matrices are probabilities from 0 to 1. The legend under each matrix gives its actual min and max.`],
+  tok: ["TokEmb[t]", `The rows of the learned token-embedding table for the input tokens: one vector of 6 numbers per token. Learned during training; tokens used in similar ways end up with similar rows.`],
+  pos: ["PosEmb", `Learned vector for each position 0–7. Added to the token vector so the model knows where each token sits.`],
+  E: ["E (embeddings)", `<code>E = TokEmb[t] + PosEmb</code>. The model's input for layer 1. Hover a cell to see the addition.`],
+  X: ["X (layer input)", `The 6-number vector of each token entering this layer: E for layer 1, the previous layer's output after that.`],
+  W: ["Weight matrix", `Learned parameters (6×6). Each column is one output feature as a weighted sum of the 6 input features. Initialised randomly (Xavier), then adjusted by training. Coloured bars mark which head each column pair belongs to.`],
+  b: ["Bias", `A learned offset added to every row after the matrix multiply. Starts at 0.`],
+  Q: ["Q — queries", `<code>Q = X·Wq + bq</code>. Row i = "what token i is looking for". Columns 0–1 go to head 1, 2–3 to head 2, 4–5 to head 3.`],
+  K: ["K — keys", `<code>K = X·Wk + bk</code>. Row j = "what token j offers to be matched against". Compared with queries by dot product.`],
+  V: ["V — values", `<code>V = X·Wv + bv</code>. Row j = what token j contributes to whoever attends to it.`],
+  Qh: ["Q for one head", `A 2-column slice of Q. Row i is the query arrow of token i in that head's plot.`],
+  Kh: ["K for one head", `A 2-column slice of K. Row j is the key arrow of token j in that head's plot.`],
+  Vh: ["V for one head", `A 2-column slice of V: what each token would hand over, in this head's 2-D space.`],
+  S: ["S — attention scores", `<code>S[i,j] = q<sub>i</sub>·k<sub>j</sub> / √2</code>. Rows = query token (the one looking), columns = key token (being looked at). Not yet probabilities — can be negative or large.`],
+  A: ["A — attention pattern", `<code>A = softmax(S)</code> per row. <b>Row i = where token i looks.</b> Each row sums to 1. A dark cell at (i, j) means token i attends strongly to token j. This is the single most informative picture of what a head is doing.`],
+  Oh: ["O — head output", `<code>O = A·V</code>: for each token, the attention-weighted average of value vectors. Only 2 numbers per token per head.`],
+  Ocat: ["concat(O₁,O₂,O₃)", `The three heads' outputs placed side by side: 3 × 2 = 6 columns, coloured by head.`],
+  Wo: ["Wo", `Learned 6×6 output projection. Row groups (coloured bars) show which head's output each row reads. It mixes the heads' findings and writes them back into the 6-number token vector.`],
+  bo: ["bo", `Bias added after the output projection.`],
+  O: ["O (attention output)", `<code>O = concat(O₁,O₂,O₃)·Wo + bo</code>. What the attention sublayer wants to add to each token's vector.`],
+  XO: ["X + O (residual)", `The input plus the attention output. The skip connection means the layer only has to learn a <i>change</i>, which makes deep models much easier to train.`],
+  ln1: ["Row statistics", `Mean μ and variance σ² of each row of the matrix being normalised. LayerNorm subtracts μ and divides by √(σ²+ε), with ε = 1e-5 to avoid dividing by zero.`],
+  ln1g: ["γ (gain)", `Learned per-column scale applied after normalising. Starts at 1.`],
+  ln1b: ["β (shift)", `Learned per-column offset applied after normalising. Starts at 0.`],
+  X1: ["X₁ (after LayerNorm 1)", `<code>LN(X + O)</code>: each row has mean ≈ 0 and variance ≈ 1 before γ and β are applied. Input to the feed-forward block and to the second residual.`],
+  W1: ["W1", `Learned 6×24 matrix: expands each token's vector to 24 features.`],
+  bf1: ["b1", `Bias (24 numbers) added before the GELU.`],
+  pre: ["pre-GELU", `<code>X₁·W1 + b1</code>: 24 numbers per token before the non-linearity.`],
+  H: ["H (hidden)", `<code>GELU(pre)</code>. GELU is a smooth ReLU: ≈ 0 for negative inputs, ≈ x for positive ones (tanh approximation used here). The non-linearity is what lets the network compute more than linear mixes.`],
+  W2: ["W2", `Learned 24×6 matrix: compresses the hidden features back to 6 numbers.`],
+  bf2: ["b2", `Bias added after W2.`],
+  F: ["F (feed-forward output)", `<code>F = H·W2 + b2</code>. Per-token processing; added to X₁ in the next step.`],
+  X1F: ["X₁ + F (residual)", `Skip connection around the feed-forward block.`],
+  ln2: ["Row statistics", `Mean μ and variance σ² of each row of X₁+F, used by LayerNorm 2.`],
+  ln2g: ["γ (gain)", `Learned per-column scale for LayerNorm 2.`],
+  ln2b: ["β (shift)", `Learned per-column offset for LayerNorm 2.`],
+  Xo: ["X_out", `<code>LN(X₁+F)</code>: the layer's output. Feeds the next layer, or the output head if this is the last layer.`],
+  Wout: ["Wout", `Learned 6×V matrix scoring every vocabulary token for each position. (Real BERT also ties this to the embedding table and adds a transform; here it is a plain linear layer.)`],
+  bout: ["bout", `Per-token bias on the logits — lets the model learn how common each token is.`],
+  logits: ["logits", `<code>X_out·Wout + bout</code>: one raw score per vocabulary token per position. Higher = more likely. Not yet probabilities.`],
+  P: ["P (probabilities)", `<code>softmax(logits)</code> per row. Only the rows of masked positions are used for the loss: <code>−ln P[true token]</code>.`],
+  WQK: ["W_QK", `<code>Wq<sub>h</sub>·Wk<sub>h</sub>ᵀ</code> (6×6). Entry (i,j) says how much input feature i of the query token and input feature j of the key token raise the attention score. Describes what the head <i>searches for</i>.`],
+  WOV: ["W_OV", `<code>Wv<sub>h</sub>·Wo<sub>h</sub></code> (6×6). Maps the attended token's features to what is written into the output. Describes what the head <i>copies</i>.`],
+};
+// Which INFO key describes a matrix id (heads add a digit: Qh0, S1, A2…)
+function infoKeyFor(id) {
+  const k = id.replace(/^(Qh|Kh|Vh|S|A|Oh|WQK|WOV)\d$/, "$1");
+  if (INFO[k]) return k;
+  if (/^W[qkv]$/.test(k)) return "W";
+  if (/^b[qkv]$/.test(k)) return "b";
+  return null;
+}
+const ic = (key) => key && INFO[key] ? `<span class="i" tabindex="0" data-info="${key}">i</span>` : "";
+
+/* ==========================================================================
+ * 8. RENDERING (one function per panel; reads only trace + parameters)
+ * ========================================================================== */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (x) => x.toFixed(state.dec).replace("-", "−");
+const fmtN = (x, d = 3) => x.toFixed(d).replace("-", "−");
+const sub = (h) => HEAD_NAMES[h];
+const headColor = (h) => `var(--h${h})`;
+const tokName = (id) => state.task.vocab[id];
+let reg = {};                       // matrix id → {mat, explain}; rebuilt on every render
+
+function tokLabel(i) {
+  const id = state.trace.ids[i];
+  return id === MASK_ID ? `${i}:[MASK]` : `${i}:"${tokName(id)}"`;
+}
+function cellBg(v, kind, absmax) {
+  if (kind === "seq") return `rgba(22,163,74,${(Math.min(1, Math.max(0, v)) * 0.8).toFixed(3)})`;
+  const a = absmax > 0 ? Math.min(1, Math.abs(v) / absmax) * 0.7 : 0;
+  return v >= 0 ? `rgba(234,88,12,${a.toFixed(3)})` : `rgba(37,99,235,${a.toFixed(3)})`;
+}
+const D = (id, name, mat) => ({ id, name, mat });          // matrix descriptor used by explainers
+
+// Draws one matrix. o: {id,name,mat,kind,rows,cols,heads,rowHeads,formula,explain,small}
+function matrixHTML(o) {
+  const m = o.mat, kind = o.kind || "div";
+  reg[o.id] = { mat: m, explain: o.explain };
+  let mn = Infinity, mx = -Infinity, am = 0;
+  for (const x of m.data) { mn = Math.min(mn, x); mx = Math.max(mx, x); am = Math.max(am, Math.abs(x)); }
+  const rl = (i) => o.rows === "tok" ? `<th data-tok="${i}">${esc(tokLabel(i))}</th>` : Array.isArray(o.rows) ? `<th>${esc(o.rows[i])}</th>` : o.rows === "none" ? "" : `<th${o.rowHeads ? ` style="border-right:3px solid ${headColor(Math.floor(i / CONFIG.d_head))}"` : ""}>${i}</th>`;
+  const cl = (j) => {
+    const st = o.heads ? ` style="border-bottom:3px solid ${headColor(Math.floor(j / CONFIG.d_head))}"` : "";
+    if (o.cols === "tok") return `<th data-tok="${j}"${st}>${esc(tokLabel(j))}</th>`;
+    if (Array.isArray(o.cols)) return `<th${st}>${esc(o.cols[j])}</th>`;
+    return `<th${st}>${j}</th>`;
+  };
+  let h = `<div class="mwrap${o.small ? " small" : ""}"><div class="mtitle"><b>${o.name}</b>${ic(infoKeyFor(o.id))}<span class="shape">${m.rows}×${m.cols}</span></div>`;
+  if (o.formula) h += `<div class="formula">${o.formula}</div>`;
+  h += `<table class="mat"><thead><tr>${o.rows === "none" ? "" : "<th></th>"}`;
+  for (let j = 0; j < m.cols; j++) h += cl(j);
+  h += "</tr></thead><tbody>";
+  for (let i = 0; i < m.rows; i++) {
+    h += `<tr>${rl(i)}`;
+    for (let j = 0; j < m.cols; j++) {
+      const v = m.data[i * m.cols + j];
+      h += `<td data-mid="${o.id}" data-i="${i}" data-j="${j}" style="background:${cellBg(v, kind, am)}">${fmt(v)}</td>`;
+    }
+    h += "</tr>";
+  }
+  h += `</tbody></table><div class="legend"><span>${fmt(mn)}</span><i class="bar ${kind}"></i><span>${fmt(mx)}</span></div></div>`;
+  return h;
+}
+const op = (s) => `<span class="op">${s}</span>`;
+const eq = (...parts) => `<div class="eq">${parts.join("")}</div>`;
+
+/* ----- cell explainers: each returns (i,j) → {html, hl:[{mid,row?,col?,i?,j?}]} ----- */
+function termsStr(pairs, max = 6) {
+  const t = pairs.map(([a, b]) => `(${fmt(a)}×${fmt(b)})`);
+  return t.length > max ? t.slice(0, max).join(" + ") + ` + … (${t.length} terms)` : t.join(" + ");
+}
+// out[i,j] = A[i,:]·B[:,j] (+ bias[j]) (× sc)
+function exMatmul(out, A, B, bias, sc) {
+  return (i, j) => {
+    const pairs = []; let s = 0;
+    for (let k = 0; k < A.mat.cols; k++) { const a = A.mat.get(i, k), b = B.mat.get(k, j); pairs.push([a, b]); s += a * b; }
+    const bv = bias ? bias.mat.get(0, j) : 0;
+    return {
+      html: `${out.name}[${i},${j}] = ${A.name}[${i},:]·${B.name}[:,${j}]${bias ? ` + ${bias.name}[${j}]` : ""}<br>= ${termsStr(pairs)}${bias ? ` + ${fmt(bv)}` : ""} = <b>${fmt(out.mat.get(i, j))}</b>`,
+      hl: [{ mid: A.id, row: i }, { mid: B.id, col: j }, ...(bias ? [{ mid: bias.id, col: j }] : [])],
+    };
+  };
+}
+// S[i,j] = q_i·k_j / √d
+function exScores(out, Qh, Kh, h) {
+  return (i, j) => {
+    const pairs = []; let s = 0;
+    for (let k = 0; k < Qh.mat.cols; k++) { const a = Qh.mat.get(i, k), b = Kh.mat.get(j, k); pairs.push([a, b]); s += a * b; }
+    const r = Math.sqrt(CONFIG.d_head);
+    return {
+      html: `${out.name}[${i},${j}] = q${i}·k${j} / √${CONFIG.d_head} = ${termsStr(pairs)} / ${fmtN(r)} = <b>${fmt(out.mat.get(i, j))}</b>`,
+      hl: [{ mid: Qh.id, row: i }, { mid: Kh.id, row: j }],
+    };
+  };
+}
+// P[i,j] = exp(S[i,j]) / Σk exp(S[i,k])
+function exSoftmax(out, S) {
+  return (i, j) => {
+    let sum = 0; for (let k = 0; k < S.mat.cols; k++) sum += Math.exp(S.mat.get(i, k));
+    const e = Math.exp(S.mat.get(i, j));
+    return {
+      html: `${out.name}[${i},${j}] = exp(${S.name}[${i},${j}]) / Σⱼ exp(${S.name}[${i},j])<br>= exp(${fmt(S.mat.get(i, j))}) / ${fmtN(sum)} = ${fmtN(e)} / ${fmtN(sum)} = <b>${fmtN(out.mat.get(i, j))}</b>`,
+      hl: [{ mid: S.id, row: i }],
+    };
+  };
+}
+// O[i,c] = Σj A[i,j]·V[j,c]
+function exWV(out, A, V) {
+  return (i, c) => {
+    const pairs = []; for (let j = 0; j < A.mat.cols; j++) pairs.push([A.mat.get(i, j), V.mat.get(j, c)]);
+    return {
+      html: `${out.name}[${i},${c}] = Σⱼ ${A.name}[${i},j]·${V.name}[j,${c}]<br>= ${termsStr(pairs)} = <b>${fmt(out.mat.get(i, c))}</b>`,
+      hl: [{ mid: A.id, row: i }, { mid: V.id, col: c }],
+    };
+  };
+}
+const exAdd = (out, A, B) => (i, j) => ({
+  html: `${out.name}[${i},${j}] = ${A.name}[${i},${j}] + ${B.name}[${i},${j}] = ${fmt(A.mat.get(i, j))} + ${fmt(B.mat.get(i, j))} = <b>${fmt(out.mat.get(i, j))}</b>`,
+  hl: [{ mid: A.id, i, j }, { mid: B.id, i, j }],
+});
+const exCopy = (out, src, r0, c0, note) => (i, j) => ({
+  html: `${out.name}[${i},${j}] = ${src.name}[${i + r0},${j + c0}] = <b>${fmt(out.mat.get(i, j))}</b>${note ? `<br>${note}` : ""}`,
+  hl: [{ mid: src.id, i: i + r0, j: j + c0 }],
+});
+function exLN(out, inp, stats, gamma, beta, lnId) {
+  return (i, j) => {
+    const x = inp.mat.get(i, j), mu = stats.mean[i], va = stats.variance[i], sd = Math.sqrt(va + CONFIG.ln_eps), g = gamma.get(0, j), b = beta.get(0, j);
+    return {
+      html: `${out.name}[${i},${j}] = (x − μ) / √(σ² + ε) · γ + β   with x = ${inp.name}[${i},${j}]<br>= (${fmt(x)} − ${fmtN(mu)}) / √(${fmtN(va, 4)} + 1e-5) · ${fmt(g)} + ${fmt(b)} = ${fmtN(x - mu)} / ${fmtN(sd, 4)} · ${fmt(g)} + ${fmt(b)} = <b>${fmt(out.mat.get(i, j))}</b>`,
+      hl: [{ mid: inp.id, row: i }, { mid: lnId, row: i }, { mid: lnId + "g", col: j }, { mid: lnId + "b", col: j }],
+    };
+  };
+}
+const exGelu = (out, pre) => (i, j) => {
+  const x = pre.mat.get(i, j);
+  return {
+    html: `${out.name}[${i},${j}] = GELU(x) = 0.5·x·(1 + tanh(√(2/π)·(x + 0.044715·x³)))   (tanh approximation)<br>x = ${fmt(x)} → 0.5·${fmt(x)}·(1 + tanh(${fmtN(SQ2PI * (x + 0.044715 * x ** 3))})) = <b>${fmt(out.mat.get(i, j))}</b>`,
+    hl: [{ mid: pre.id, i, j }],
+  };
+};
+
+/* ----- stage definitions ----- */
+const STAGES = [
+  { short: "Embed", title: "1 · Embeddings", desc: "E = TokEmb[token] + PosEmb[position]" },
+  { short: "Project", title: "2 · Projections", desc: "Q = X·Wq + bq, K = X·Wk + bk, V = X·Wv + bv. Column pairs are coloured by head." },
+  { short: "Split", title: "3 · Head split", desc: "Each of Q, K, V is cut into 3 heads of width 2." },
+  { short: "Scores", title: "4 · Scores", desc: "S_h = Q_h K_hᵀ / √2 — how well each query lines up with each key." },
+  { short: "Softmax", title: "5 · Softmax", desc: "A_h = softmax over each row of S_h. Rows sum to 1." },
+  { short: "Values", title: "6 · Weighted values", desc: "O_h = A_h V_h — each token's output is an attention-weighted mix of value vectors." },
+  { short: "Concat+Wo", title: "7 · Concat + output projection", desc: "O = concat(O₁,O₂,O₃)·Wo + bo" },
+  { short: "Add+LN", title: "8 · Residual + LayerNorm 1", desc: "X₁ = LayerNorm(X + O)" },
+  { short: "FFN", title: "9 · Feed-forward", desc: "F = GELU(X₁·W1 + b1)·W2 + b2" },
+  { short: "Add+LN", title: "10 · Residual + LayerNorm 2", desc: "X_out = LayerNorm(X₁ + F)" },
+  { short: "Output", title: "11 · Output", desc: "logits = X_out·Wout + bout; P = softmax; loss = mean cross-entropy at masked positions." },
+];
+const dm = () => CONFIG.d_model;
+const stageRenderers = [
+  function embed(c) {
+    const tr = c.tr, tok = D("tok", "TokEmb[t]", tr.emb.tokRows), pos = D("pos", "PosEmb", tr.emb.posRows), E = D("E", "E", tr.emb.E);
+    const tokCopy = (i, j) => ({ html: `TokEmb[t][${i},${j}] = TokEmb[${tr.ids[i]}="${esc(tokName(tr.ids[i]))}"][${j}] = <b>${fmt(tr.emb.tokRows.get(i, j))}</b>`, hl: [] });
+    const posCopy = (i, j) => ({ html: `PosEmb[${i},${j}] = PosEmb[position ${i}][${j}] = <b>${fmt(tr.emb.posRows.get(i, j))}</b>`, hl: [] });
+    return eq(
+      matrixHTML({ id: "tok", name: "TokEmb[t]", mat: tok.mat, rows: "tok", formula: "rows of the token table for the input", explain: tokCopy }), op("+"),
+      matrixHTML({ id: "pos", name: "PosEmb[0..7]", mat: pos.mat, rows: "tok", formula: "rows of the position table", explain: posCopy }), op("="),
+      matrixHTML({ id: "E", name: "E", mat: E.mat, rows: "tok", formula: "E = TokEmb[t] + PosEmb", explain: exAdd(E, tok, pos) }));
+  },
+  function project(c) {
+    const l = c.lay, p = c.p, X = D("X", "X", l.X), out = [];
+    for (const [n, W, b, M] of [["Q", p.Wq, p.bq, l.Q], ["K", p.Wk, p.bk, l.K], ["V", p.Wv, p.bv, l.V]]) {
+      const Wd = D("W" + n.toLowerCase(), "W" + n.toLowerCase(), W.v), bd = D("b" + n.toLowerCase(), "b" + n.toLowerCase(), b.v), Md = D(n, n, M);
+      out.push(eq(
+        matrixHTML({ id: "X", name: "X", mat: l.X, rows: "tok", explain: (i, j) => ({ html: `X[${i},${j}] = ${fmt(l.X.get(i, j))} (input to this layer)`, hl: [] }) }), op("×"),
+        matrixHTML({ id: Wd.id, name: Wd.name, mat: Wd.mat, heads: true, formula: "6×6 weights", explain: (i, j) => ({ html: `${Wd.name}[${i},${j}] = ${fmt(Wd.mat.get(i, j))} (learned weight)`, hl: [] }) }), op("+"),
+        matrixHTML({ id: bd.id, name: bd.name, mat: bd.mat, heads: true, rows: "none", small: true, explain: (i, j) => ({ html: `${bd.name}[${j}] = ${fmt(bd.mat.get(0, j))} (bias)`, hl: [] }) }), op("="),
+        matrixHTML({ id: n, name: n, mat: M, rows: "tok", heads: true, formula: `${n} = X·${Wd.name} + ${bd.name}`, explain: exMatmul(Md, X, Wd, bd) })));
+    }
+    return out.join("");
+  },
+  function split(c) {
+    const l = c.lay, d = [["Q", l.Q], ["K", l.K], ["V", l.V]], out = [];
+    for (let h = 0; h < CONFIG.n_heads; h++) {
+      const parts = [];
+      for (const [n, M] of d) {
+        const src = D(n, n, M), key = n + "h", dst = D(`${key}${h}`, `${n}${sub(h)}`, l.heads[h][key]);
+        parts.push(matrixHTML({ id: dst.id, name: dst.name, mat: dst.mat, rows: "tok", formula: `${n}[:, ${2 * h}:${2 * h + 2}]`, explain: exCopy(dst, src, 0, 2 * h, `(columns ${2 * h},${2 * h + 1} of ${n})`) }));
+      }
+      out.push(`<div class="row-title" style="color:${headColor(h)}">Head ${h + 1}</div>` + eq(...parts));
+    }
+    return out.join("");
+  },
+  function scores(c) {
+    const out = [];
+    for (let h = 0; h < CONFIG.n_heads; h++) {
+      const hd = c.lay.heads[h], Q = D(`Qh${h}`, `Q${sub(h)}`, hd.Qh), K = D(`Kh${h}`, `K${sub(h)}`, hd.Kh), S = D(`S${h}`, `S${sub(h)}`, hd.S);
+      out.push(`<div class="row-title" style="color:${headColor(h)}">Head ${h + 1}</div>` + eq(
+        matrixHTML({ id: Q.id, name: Q.name, mat: Q.mat, rows: "tok", explain: (i, j) => ({ html: `${Q.name}[${i},${j}] = ${fmt(Q.mat.get(i, j))}`, hl: [] }) }), op("× ᵀ"),
+        matrixHTML({ id: K.id, name: K.name, mat: K.mat, rows: "tok", explain: (i, j) => ({ html: `${K.name}[${i},${j}] = ${fmt(K.mat.get(i, j))}`, hl: [] }) }), op("/ √2 ="),
+        matrixHTML({ id: S.id, name: S.name, mat: S.mat, rows: "tok", cols: "tok", formula: "rows = query token, cols = key token", explain: exScores(S, Q, K, h) })));
+    }
+    return out.join("");
+  },
+  function softmax(c) {
+    const out = [];
+    for (let h = 0; h < CONFIG.n_heads; h++) {
+      const hd = c.lay.heads[h], S = D(`S${h}`, `S${sub(h)}`, hd.S), A = D(`A${h}`, `A${sub(h)}`, hd.A);
+      out.push(`<div class="row-title" style="color:${headColor(h)}">Head ${h + 1}</div>` + eq(
+        matrixHTML({ id: S.id, name: S.name, mat: S.mat, rows: "tok", cols: "tok", explain: (i, j) => ({ html: `${S.name}[${i},${j}] = ${fmt(S.mat.get(i, j))}`, hl: [] }) }), op("softmax →"),
+        matrixHTML({ id: A.id, name: A.name, kind: "seq", mat: A.mat, rows: "tok", cols: "tok", formula: "each row sums to 1", explain: exSoftmax(A, S) })));
+    }
+    return out.join("");
+  },
+  function values(c) {
+    const out = [];
+    for (let h = 0; h < CONFIG.n_heads; h++) {
+      const hd = c.lay.heads[h], A = D(`A${h}`, `A${sub(h)}`, hd.A), V = D(`Vh${h}`, `V${sub(h)}`, hd.Vh), O = D(`Oh${h}`, `O${sub(h)}`, hd.Oh);
+      out.push(`<div class="row-title" style="color:${headColor(h)}">Head ${h + 1}${c.model.ablate[h] ? " (ablated → zero)" : ""}</div>` + eq(
+        matrixHTML({ id: A.id, name: A.name, kind: "seq", mat: A.mat, rows: "tok", cols: "tok", explain: exSoftmax(A, D(`S${h}`, `S${sub(h)}`, hd.S)) }), op("×"),
+        matrixHTML({ id: V.id, name: V.name, mat: V.mat, rows: "tok", explain: (i, j) => ({ html: `${V.name}[${i},${j}] = ${fmt(V.mat.get(i, j))}`, hl: [] }) }), op("="),
+        matrixHTML({ id: O.id, name: O.name, mat: O.mat, rows: "tok", explain: exWV(O, A, V) })));
+    }
+    return out.join("");
+  },
+  function concat(c) {
+    const l = c.lay, p = c.p, Oc = D("Ocat", "concat(O)", l.Ocat), Wo = D("Wo", "Wo", p.Wo.v), bo = D("bo", "bo", p.bo.v), O = D("O", "O", l.O);
+    const catCopy = (i, j) => { const h = Math.floor(j / 2); return { html: `concat[${i},${j}] = O${sub(h)}[${i},${j % 2}] = <b>${fmt(l.Ocat.get(i, j))}</b>`, hl: [{ mid: `Oh${h}`, i, j: j % 2 }] }; };
+    return eq(
+      matrixHTML({ id: "Ocat", name: "concat(O₁,O₂,O₃)", mat: l.Ocat, rows: "tok", heads: true, explain: catCopy }), op("×"),
+      matrixHTML({ id: "Wo", name: "Wo", mat: Wo.mat, rowHeads: true, explain: (i, j) => ({ html: `Wo[${i},${j}] = ${fmt(Wo.mat.get(i, j))}`, hl: [] }) }), op("+"),
+      matrixHTML({ id: "bo", name: "bo", mat: bo.mat, rows: "none", small: true, explain: (i, j) => ({ html: `bo[${j}] = ${fmt(bo.mat.get(0, j))}`, hl: [] }) }), op("="),
+      matrixHTML({ id: "O", name: "O", mat: l.O, rows: "tok", explain: exMatmul(O, Oc, Wo, bo) }));
+  },
+  function ln1(c) {
+    const l = c.lay, p = c.p, X = D("X", "X", l.X), O = D("O", "O", l.O), XO = D("XO", "X+O", l.XO), X1 = D("X1", "X₁", l.X1);
+    const stats = new Mat(l.XO.rows, 2); for (let i = 0; i < stats.rows; i++) { stats.set(i, 0, l.ln1.mean[i]); stats.set(i, 1, l.ln1.variance[i]); }
+    return eq(
+      matrixHTML({ id: "X", name: "X", mat: l.X, rows: "tok", explain: (i, j) => ({ html: `X[${i},${j}] = ${fmt(l.X.get(i, j))}`, hl: [] }) }), op("+"),
+      matrixHTML({ id: "O", name: "O", mat: l.O, rows: "tok", explain: (i, j) => ({ html: `O[${i},${j}] = ${fmt(l.O.get(i, j))}`, hl: [] }) }), op("="),
+      matrixHTML({ id: "XO", name: "X + O", mat: l.XO, rows: "tok", explain: exAdd(XO, X, O) })) + eq(
+      matrixHTML({ id: "ln1", name: "row stats of X+O", mat: stats, rows: "tok", cols: ["μ", "σ²"], formula: "mean and variance of each row", small: true, explain: (i, j) => ({ html: `${j ? "σ²" : "μ"} of row ${i} of X+O = <b>${fmtN(stats.get(i, j), 4)}</b>`, hl: [{ mid: "XO", row: i }] }) }),
+      matrixHTML({ id: "ln1g", name: "γ", mat: p.ln1g.v, rows: "none", small: true, explain: (i, j) => ({ html: `γ[${j}] = ${fmt(p.ln1g.v.get(0, j))}`, hl: [] }) }),
+      matrixHTML({ id: "ln1b", name: "β", mat: p.ln1b.v, rows: "none", small: true, explain: (i, j) => ({ html: `β[${j}] = ${fmt(p.ln1b.v.get(0, j))}`, hl: [] }) }), op("⇒"),
+      matrixHTML({ id: "X1", name: "X₁ = LN(X+O)", mat: l.X1, rows: "tok", formula: "(x−μ)/√(σ²+ε)·γ+β", explain: exLN(X1, XO, l.ln1, p.ln1g.v, p.ln1b.v, "ln1") }));
+  },
+  function ffn(c) {
+    const l = c.lay, p = c.p, X1 = D("X1", "X₁", l.X1), W1 = D("W1", "W1", p.W1.v), b1 = D("bf1", "b1", p.bf1.v), pre = D("pre", "pre-GELU", l.pre), H = D("H", "H", l.H), W2 = D("W2", "W2", p.W2.v), b2 = D("bf2", "b2", p.bf2.v), F = D("F", "F", l.F);
+    const plain = (d) => (i, j) => ({ html: `${d.name}[${i},${j}] = ${fmt(d.mat.get(i, j))}`, hl: [] });
+    return eq(
+      matrixHTML({ id: "X1", name: "X₁", mat: l.X1, rows: "tok", explain: plain(X1) }), op("×"),
+      matrixHTML({ id: "W1", name: "W1", mat: W1.mat, explain: plain(W1) }), op("+"),
+      matrixHTML({ id: "bf1", name: "b1", mat: b1.mat, rows: "none", small: true, explain: plain(b1) }), op("="),
+      matrixHTML({ id: "pre", name: "pre-GELU", mat: l.pre, rows: "tok", explain: exMatmul(pre, X1, W1, b1) })) + eq(
+      op("GELU ⇒"), matrixHTML({ id: "H", name: "H", mat: l.H, rows: "tok", formula: "H = GELU(pre)", explain: exGelu(H, pre) }), op("×"),
+      matrixHTML({ id: "W2", name: "W2", mat: W2.mat, explain: plain(W2) }), op("+"),
+      matrixHTML({ id: "bf2", name: "b2", mat: b2.mat, rows: "none", small: true, explain: plain(b2) }), op("="),
+      matrixHTML({ id: "F", name: "F", mat: l.F, rows: "tok", explain: exMatmul(F, H, W2, b2) }));
+  },
+  function ln2(c) {
+    const l = c.lay, p = c.p, X1 = D("X1", "X₁", l.X1), F = D("F", "F", l.F), S = D("X1F", "X₁+F", l.X1F), Xo = D("Xo", "X_out", l.Xout);
+    const stats = new Mat(l.X1F.rows, 2); for (let i = 0; i < stats.rows; i++) { stats.set(i, 0, l.ln2.mean[i]); stats.set(i, 1, l.ln2.variance[i]); }
+    return eq(
+      matrixHTML({ id: "X1", name: "X₁", mat: l.X1, rows: "tok", explain: (i, j) => ({ html: `X₁[${i},${j}] = ${fmt(l.X1.get(i, j))}`, hl: [] }) }), op("+"),
+      matrixHTML({ id: "F", name: "F", mat: l.F, rows: "tok", explain: (i, j) => ({ html: `F[${i},${j}] = ${fmt(l.F.get(i, j))}`, hl: [] }) }), op("="),
+      matrixHTML({ id: "X1F", name: "X₁ + F", mat: l.X1F, rows: "tok", explain: exAdd(S, X1, F) })) + eq(
+      matrixHTML({ id: "ln2", name: "row stats of X₁+F", mat: stats, rows: "tok", cols: ["μ", "σ²"], small: true, explain: (i, j) => ({ html: `${j ? "σ²" : "μ"} of row ${i} of X₁+F = <b>${fmtN(stats.get(i, j), 4)}</b>`, hl: [{ mid: "X1F", row: i }] }) }),
+      matrixHTML({ id: "ln2g", name: "γ", mat: p.ln2g.v, rows: "none", small: true, explain: (i, j) => ({ html: `γ[${j}] = ${fmt(p.ln2g.v.get(0, j))}`, hl: [] }) }),
+      matrixHTML({ id: "ln2b", name: "β", mat: p.ln2b.v, rows: "none", small: true, explain: (i, j) => ({ html: `β[${j}] = ${fmt(p.ln2b.v.get(0, j))}`, hl: [] }) }), op("⇒"),
+      matrixHTML({ id: "Xo", name: "X_out = LN(X₁+F)", mat: l.Xout, rows: "tok", explain: exLN(Xo, S, l.ln2, p.ln2g.v, p.ln2b.v, "ln2") }));
+  },
+  function output(c) {
+    const tr = c.tr, last = tr.layers[tr.layers.length - 1], m = c.model, V = state.task.vocab;
+    const Xo = D("Xo", "X_out", last.Xout), Wo = D("Wout", "Wout", m.Wout.v), bo = D("bout", "bout", m.bout.v), lg = D("logits", "logits", tr.out.logits), P = D("P", "P", tr.out.P);
+    const plain = (d) => (i, j) => ({ html: `${d.name}[${i},${j}] = ${fmt(d.mat.get(i, j))}`, hl: [] });
+    const vcols = V.map((t) => t);
+    return eq(
+      matrixHTML({ id: "Xo", name: "X_out", mat: last.Xout, rows: "tok", explain: plain(Xo) }), op("×"),
+      matrixHTML({ id: "Wout", name: "Wout", mat: Wo.mat, cols: vcols, explain: plain(Wo) }), op("+"),
+      matrixHTML({ id: "bout", name: "bout", mat: bo.mat, rows: "none", cols: vcols, small: true, explain: plain(bo) }), op("="),
+      matrixHTML({ id: "logits", name: "logits", mat: tr.out.logits, rows: "tok", cols: vcols, explain: exMatmul(lg, Xo, Wo, bo) })) + eq(
+      op("softmax ⇒"), matrixHTML({ id: "P", name: "P", kind: "seq", mat: tr.out.P, rows: "tok", cols: vcols, formula: "each row sums to 1; only masked rows count toward the loss", explain: exSoftmax(P, lg) })) + outputBars(tr, false);
+  },
+];
+
+// Bar chart of P over the vocabulary for each masked position, true token highlighted.
+function outputBars(tr, compact) {
+  if (!tr.maskedPos.length) return `<div class="caption">No masked positions — click a token chip above to mask it.</div>`;
+  const V = state.task.vocab, w = compact ? 15 : 20, H = compact ? 60 : 90;
+  let h = `<div class="bars">`;
+  tr.maskedPos.forEach((pos, k) => {
+    const row = Array.from({ length: V.length }, (_, j) => tr.out.P.get(pos, j)), tgt = tr.targets[k];
+    let best = 0; row.forEach((p, j) => { if (p > row[best]) best = j; });
+    h += `<div class="bchart"><div>position <b data-tok="${pos}">${pos}</b> · true <b>${esc(tokName(tgt))}</b> · pred <b>${esc(tokName(best))}</b> ${best === tgt ? "✓" : "✗"}<br>loss = −ln P[true] = <b>${fmtN(tr.out.perPos[k])}</b>${ic("loss")}</div>`;
+    h += `<svg width="${V.length * w + 4}" height="${H + 22}">`;
+    row.forEach((p, j) => {
+      const bh = Math.max(1, p * H), x = 2 + j * w;
+      h += `<rect x="${x}" y="${H - bh + 2}" width="${w - 3}" height="${bh}" fill="${j === tgt ? "var(--good)" : "var(--accent)"}" opacity="${j === tgt ? 1 : 0.55}"><title>${esc(V[j])}: ${fmtN(p)}</title></rect>`;
+      h += `<text x="${x + (w - 3) / 2}" y="${H + 14}" font-size="9" text-anchor="middle" fill="currentColor"${j === tgt ? ' font-weight="700"' : ""}>${esc(V[j] === "[MASK]" ? "M" : V[j])}</text>`;
+    });
+    h += `</svg></div>`;
+  });
+  return h + `</div>`;
+}
+
+/* ----- heads panel ----- */
+function arrowSVG(x0, y0, x1, y1, color, dashed, cls) {
+  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+  let s = `<line class="${cls || ""}" x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="${color}" stroke-width="1.8"${dashed ? ' stroke-dasharray="4 3"' : ""}/>`;
+  if (len > 4) {
+    const ux = dx / len, uy = dy / len, a = 5, bx = x1 - ux * a, by = y1 - uy * a;
+    s += `<polygon points="${x1},${y1} ${bx - uy * 2.5},${by + ux * 2.5} ${bx + uy * 2.5},${by - ux * 2.5}" fill="${color}"/>`;
+  }
+  return s;
+}
+function arrowPlot(hd, h, L) {
+  const color = headColor(h);
+  let R = 0.3; for (const M of [hd.Qh, hd.Kh]) for (const x of M.data) R = Math.max(R, Math.abs(x));
+  R *= 1.15;                                          // same scale on both axes ⇒ angles are true
+  const sc = 90 / R, cx = 100, cy = 100, px = (x) => cx + x * sc, py = (y) => cy - y * sc;
+  let s = `<svg viewBox="0 0 200 200" style="border:1px solid var(--line);border-radius:6px;color:var(--fg)">`;
+  s += `<line x1="0" y1="${cy}" x2="200" y2="${cy}" stroke="var(--line)"/><line x1="${cx}" y1="0" x2="${cx}" y2="200" stroke="var(--line)"/>`;
+  s += `<text x="196" y="${cy - 3}" font-size="8" text-anchor="end" fill="var(--muted)">${fmtN(R, 2)}</text><text x="${cx + 3}" y="9" font-size="8" fill="var(--muted)">${fmtN(R, 2)}</text>`;
+  for (let j = 0; j < L; j++) {                       // keys: dashed
+    const kx = hd.Kh.get(j, 0), ky = hd.Kh.get(j, 1);
+    s += `<g data-tok="${j}">${arrowSVG(cx, cy, px(kx), py(ky), color, true)}<text x="${px(kx) + 3}" y="${py(ky) - 3}" font-size="9" font-style="italic" fill="${color}" data-tok="${j}">k${esc(tokShort(j))}</text></g>`;
+  }
+  for (let i = 0; i < L; i++) {                       // queries: solid, with hover projections onto every key
+    const qx = hd.Qh.get(i, 0), qy = hd.Qh.get(i, 1);
+    let proj = "";
+    for (let j = 0; j < L; j++) {
+      const kx = hd.Kh.get(j, 0), ky = hd.Kh.get(j, 1), kn = Math.hypot(kx, ky), dot = qx * kx + qy * ky;
+      if (kn < 1e-9) continue;
+      const t = dot / (kn * kn), ox = t * kx, oy = t * ky;   // projection of q onto the line of k
+      proj += `<line x1="${px(qx)}" y1="${py(qy)}" x2="${px(ox)}" y2="${py(oy)}" stroke="var(--fg)" stroke-dasharray="1.5 2" stroke-width=".8"/><circle cx="${px(ox)}" cy="${py(oy)}" r="2" fill="var(--fg)"/><text x="${px(ox) + 3}" y="${py(oy) + 8}" font-size="7.5" fill="var(--fg)" paint-order="stroke" stroke="var(--panel)" stroke-width="2">${fmtN(dot, 2)}</text>`;
+    }
+    s += `<g class="qgroup" data-tok="${i}"><g class="proj">${proj}</g><line x1="${cx}" y1="${cy}" x2="${px(qx)}" y2="${py(qy)}" stroke="transparent" stroke-width="10"/>${arrowSVG(cx, cy, px(qx), py(qy), color, false, "qarrow")}<text x="${px(qx) + 3}" y="${py(qy) + 10}" font-size="9" font-weight="700" fill="${color}" data-tok="${i}">q${esc(tokShort(i))}</text><title>q${i} = (${fmt(qx)}, ${fmt(qy)}). Hover to project onto every key; labels show q·k.</title></g>`;
+  }
+  return s + `</svg>`;
+}
+const tokShort = (i) => { const id = state.trace.ids[i]; return (id === MASK_ID ? "M" : tokName(id)) + i; };
+function attentionLines(A, h, L) {
+  const color = headColor(h), rh = 15, H = L * rh + 6;
+  let s = `<svg viewBox="0 0 190 ${H}" style="color:var(--fg)">`;
+  for (let i = 0; i < L; i++) for (let j = 0; j < L; j++) {
+    const a = A.get(i, j);
+    if (a < 0.004) continue;
+    s += `<line x1="50" y1="${i * rh + 10}" x2="140" y2="${j * rh + 10}" stroke="${color}" stroke-opacity="${Math.min(1, a).toFixed(3)}" stroke-width="${(0.4 + 3.2 * a).toFixed(2)}"><title>A[${i},${j}] = ${fmtN(a)}</title></line>`;
+  }
+  for (let i = 0; i < L; i++) {
+    s += `<text x="46" y="${i * rh + 13}" font-size="9.5" text-anchor="end" fill="currentColor" data-tok="${i}">${esc(tokLabel(i))}</text><text x="144" y="${i * rh + 13}" font-size="9.5" fill="currentColor" data-tok="${i}">${esc(tokLabel(i))}</text>`;
+  }
+  return s + `</svg>`;
+}
+function renderHeads() {
+  const tr = state.trace, lay = tr.layers[state.layer], L = tr.ids.length, model = state.model;
+  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>Attention heads${model.cfg.n_layers > 1 ? ` · layer ${state.layer + 1}` : ""}</b>${ic("heads")}<label><input type="checkbox" id="circToggle"${state.showCirc ? " checked" : ""}> Show circuits${ic("circ")}</label></div><div class="hcols">`;
+  for (let hh = 0; hh < CONFIG.n_heads; hh++) {
+    const hd = lay.heads[hh], A = D(`A${hh}`, `A${sub(hh)}`, hd.A), S = D(`S${hh}`, `S${sub(hh)}`, hd.S);
+    h += `<div class="hcol" style="--hc:${headColor(hh)}"><h3>Head ${hh + 1}<label><input type="checkbox" data-ablate="${hh}"${model.ablate[hh] ? " checked" : ""}> ablate${ic("ablate")}</label></h3>`;
+    h += `<div class="caption">solid = query q, dashed = key k (hover a query)${ic("arrows")}</div>` + arrowPlot(hd, hh, L);
+    h += matrixHTML({ id: A.id, name: `A${sub(hh)}`, kind: "seq", mat: A.mat, rows: "tok", cols: "tok", small: true, formula: "rows = query, cols = key", explain: exSoftmax(A, S) });
+    h += `<div class="caption">attention lines (query → key)${ic("lines")}</div>` + attentionLines(hd.A, hh, L);
+    if (state.showCirc && hd.circ) {
+      const q = D(`WQK${hh}`, `W_QK${sub(hh)}`, hd.circ.WQK), o = D(`WOV${hh}`, `W_OV${sub(hh)}`, hd.circ.WOV);
+      const plain = (d) => (i, j) => ({ html: `${d.name}[${i},${j}] = ${fmt(d.mat.get(i, j))}`, hl: [] });
+      h += matrixHTML({ id: q.id, name: q.name, mat: q.mat, small: true, formula: "Wq_h·Wk_hᵀ: how much input-dim i of a query matches input-dim j of a key", explain: plain(q) });
+      h += matrixHTML({ id: o.id, name: o.name, mat: o.mat, small: true, formula: "Wv_h·Wo_h: what attending to a token writes into the residual stream", explain: plain(o) });
+    }
+    h += `</div>`;
+  }
+  $("heads").innerHTML = h + `</div>`;
+}
+function renderStrip() {
+  $("strip").innerHTML = `<button id="prevBtn">◀ Prev</button><button id="playBtn">${state.playing ? "⏸ Pause" : "▶ Play"}</button><button id="nextBtn">Next ▶</button><span class="sep"></span>` +
+    STAGES.map((s, i) => `<button class="st${i === state.stage ? " on" : ""}" data-stage="${i}" title="${esc(s.title)}">${i + 1} ${s.short}</button>`).join("") + ic("play");
+  const s = STAGES[state.stage], lay = state.stage >= 1 && state.stage <= 9 && state.model.cfg.n_layers > 1 ? ` (layer ${state.layer + 1})` : "";
+  $("stageTitle").innerHTML = `<b>${s.title}${lay}</b>${ic("stage" + (state.stage + 1))} — ${s.desc}`;
+}
+function renderDetail() {
+  const tr = state.trace, model = state.model;
+  const ctx = { tr, model, lay: tr.layers[state.layer], p: model.layers[state.layer] };
+  $("detail").innerHTML = stageRenderers[state.stage](ctx);
+}
+function lineChart(vals, color, ymax, fixedMax) {
+  const W = 250, H = 80;
+  if (vals.length < 2) return `<svg class="chart" width="${W}" height="${H}"></svg>`;
+  const top = fixedMax || Math.max(ymax, 1e-6), n = vals.length;
+  const pts = vals.map((v, i) => `${(2 + (i / (n - 1)) * (W - 4)).toFixed(1)},${(H - 3 - Math.min(1, v / top) * (H - 8)).toFixed(1)}`).join(" ");
+  return `<svg class="chart" width="${W}" height="${H}"><polyline fill="none" stroke="${color}" stroke-width="1.6" points="${pts}"/><text x="4" y="10" font-size="9" fill="var(--muted)">${fmtN(top, 2)}</text><text x="4" y="${H - 4}" font-size="9" fill="var(--muted)">0</text></svg>`;
+}
+function renderTraining() {
+  const t = state.trainer, h = t.history, avg = t.movingAvg();
+  $("stepOut").textContent = t.stepCount; $("spsOut").textContent = t.running ? Math.round(t.sps) : 0;
+  $("lossOut").textContent = avg ? fmtN(avg.loss) : "–"; $("accOut").textContent = avg ? (100 * avg.acc).toFixed(1) + "%" : "–";
+  $("lossChart").innerHTML = lineChart(h.map((x) => x.loss), "var(--accent)", Math.max(...h.map((x) => x.loss), 0.1));
+  $("accChart").innerHTML = lineChart(h.map((x) => x.acc), "var(--good)", 1, 1);
+  $("trainBtn").textContent = t.running ? "Pause" : "Train";
+  $("outSummary").innerHTML = outputBars(state.trace, true);
+}
+function renderLive() { reg = {}; renderDetail(); renderHeads(); renderTraining(); applyHover(); }
+
+/* ----- control bar ----- */
+function renderChips() {
+  const V = state.task.vocab;
+  $("chips").innerHTML = state.truth.map((t, i) => {
+    const masked = state.mask[i];
+    return `<div class="chip${masked ? " m" : ""}" data-tok="${i}"><span>${i}</span><div class="ct" data-toggle="${i}" title="click to toggle [MASK]">${masked ? "[MASK]" : esc(V[t])}</div><select data-set="${i}" title="true token at this position">${V.map((v, k) => k === MASK_ID ? "" : `<option value="${k}"${k === t ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>`;
+  }).join("");
+  $("hint").textContent = state.task.hint;
+}
+function renderExamples() {
+  $("exampleSets").innerHTML = EXAMPLE_SETS.map((x) => {
+    const lines = x.text().split("\n"), on = state.task.custom && state.task.name === "Your data: " + x.name;
+    return `<div class="excard${on ? " on" : ""}"><b>${esc(x.name)}</b> <span class="caption">${x.count} sequences</span>
+      <div>${esc(x.what)}</div><div class="caption"><b>Expect:</b> ${esc(x.expect)}</div><div class="caption"><b>Accuracy ceiling:</b> ${esc(x.ceiling)}</div>
+      <pre>${esc(lines.slice(0, 3).join("\n"))}\n…</pre>
+      <div class="btns"><button class="primary" data-ex="${x.id}" data-act="load">Load &amp; train on this</button><button data-ex="${x.id}" data-act="dl">Download .${x.id === "capitals" ? "jsonl" : "txt"}</button></div></div>`;
+  }).join("");
+}
+function renderTopControls() {
+  $("taskSel").innerHTML = state.tasks.map((t, i) => `<option value="${i}"${i === state.taskIdx ? " selected" : ""}>${esc(t.name)}</option>`).join("");
+  $("layersSel").value = String(state.nLayers);
+  $("layerWrap").hidden = state.nLayers < 2;
+  $("layerSel").innerHTML = Array.from({ length: state.nLayers }, (_, i) => `<option value="${i}"${i === state.layer ? " selected" : ""}>${i + 1}</option>`).join("");
+  $("dataPanel").hidden = !state.task.custom;
+  if (state.task.custom) renderExamples();
+}
+
+/* ==========================================================================
+ * 9. UI WIRING / MAIN LOOP
+ * ========================================================================== */
+function currentExample() {
+  const pos = state.mask.map((m, i) => (m ? i : -1)).filter((i) => i >= 0);
+  return makeExample(state.truth, pos);
+}
+function refreshTrace() {
+  const ex = currentExample();
+  state.trace = forward(state.model, ex.tokens, ex.maskedPositions, ex.targets, { circuits: true });
+}
+function loadExample(ex) {
+  state.truth = ex.truth.slice(); state.mask = state.truth.map((_, i) => ex.maskedPositions.includes(i));
+}
+function resetModel() {
+  const seed = state.seed;
+  const cfg = { ...CONFIG, n_layers: state.nLayers };
+  state.model = createModel(cfg, state.task.vocab.length, seed);
+  const old = state.trainer;
+  state.trainer = new Trainer(state.model, state.task, makeRng(seed + 1000));
+  if (old) { state.trainer.lr = old.lr; state.trainer.clip = old.clip; old.running = false; }
+  state.snapshots = []; $("snapSel").innerHTML = `<option value="">snapshots…</option>`;
+  state.uiRng = makeRng(seed + 2000);
+  state.layer = Math.min(state.layer, state.nLayers - 1);
+  if (!state.truth.length || state.truth.some((t) => t >= state.task.vocab.length)) loadExample(state.task.gen(state.uiRng));
+  refreshTrace(); renderTopControls(); renderChips(); renderStrip(); renderLive();
+}
+function setTask(idx) {
+  state.taskIdx = idx; state.task = state.tasks[idx];
+  state.uiRng = makeRng(state.seed + 2000); state.truth = [];
+  if (state.task.custom && !state.dataLoaded) { $("dataText").value = SAMPLE_DATA; loadData("Your data: " + EXAMPLE_SETS[0].name); return; }
+  loadExample(state.task.gen(state.uiRng)); resetModel();
+}
+function loadData(name) {
+  const ds = parseDataset($("dataText").value, CONFIG.seq_len);
+  if (ds.errors.length || !ds.examples.length) {
+    $("dataStatus").innerHTML = `<span style="color:var(--bad)">${esc(ds.errors.slice(0, 4).join(" · ") || "no sequences found")}${ds.errors.length > 4 ? ` · …(+${ds.errors.length - 4} more)` : ""}</span>`;
+    return;
+  }
+  $("dataStatus").textContent = `loaded ${ds.examples.length} sequences, ${ds.vocab.length - 1} distinct tokens`;
+  const task = makeCustomTask(ds, name), ci = state.tasks.findIndex((t) => t.custom);
+  if (ci >= 0) state.tasks[ci] = task; else state.tasks.push(task);
+  state.dataLoaded = true; state.taskIdx = state.tasks.findIndex((t) => t.custom); state.task = task;
+  state.uiRng = makeRng(state.seed + 2000); state.truth = [];
+  loadExample(task.gen(state.uiRng)); resetModel();
+}
+function refresh() { refreshTrace(); renderLive(); }
+
+/* training loop: train in ~12 ms slices per animation frame, re-render at most 10 times/s */
+let lastRender = 0, lastT = 0, lastSteps = 0;
+function trainFrame(now) {
+  const t = state.trainer; if (!t.running) return;
+  const t0 = performance.now();
+  while (performance.now() - t0 < 12) t.step();
+  if (now - lastT >= 500) { t.sps = ((t.stepCount - lastSteps) * 1000) / (now - lastT); lastT = now; lastSteps = t.stepCount; }
+  if (now - lastRender >= 100) { lastRender = now; refresh(); }
+  requestAnimationFrame(trainFrame);
+}
+function setTraining(on) {
+  const t = state.trainer; if (on === t.running) return;
+  t.running = on;
+  if (on) { lastT = performance.now(); lastSteps = t.stepCount; requestAnimationFrame(trainFrame); } else { t.sps = 0; refresh(); }
+  $("trainBtn").textContent = on ? "Pause" : "Train";
+}
+function stepN(n) { setTraining(false); for (let i = 0; i < n; i++) state.trainer.step(); refresh(); }
+
+/* hover: cell explainer + token highlighting */
+function clearHl() {
+  document.querySelectorAll(".hl,.hlsrc,.tokhl").forEach((e) => e.classList.remove("hl", "hlsrc", "tokhl"));
+}
+function applyHover() {
+  clearHl(); const h = state.hover, tip = $("tip");
+  if (!h) { tip.style.display = "none"; return; }
+  if (h.kind === "cell") {
+    const r = reg[h.mid]; if (!r || !r.explain || h.i >= r.mat.rows || h.j >= r.mat.cols) { tip.style.display = "none"; return; }
+    const res = r.explain(h.i, h.j);
+    tip.innerHTML = res.html; tip.style.display = "block";
+    for (const t of res.hl) document.querySelectorAll(`td[data-mid="${t.mid}"]`).forEach((td) => {
+      const i = +td.dataset.i, j = +td.dataset.j;
+      if ((t.row === undefined || t.row === i) && (t.col === undefined || t.col === j) && (t.i === undefined || (t.i === i && t.j === j))) td.classList.add("hl");
+    });
+    document.querySelectorAll(`td[data-mid="${h.mid}"][data-i="${h.i}"][data-j="${h.j}"]`).forEach((td) => td.classList.add("hlsrc"));
+  } else {
+    tip.style.display = "none";
+    document.querySelectorAll(`[data-tok="${h.i}"]`).forEach((e) => e.classList.add("tokhl"));
+  }
+}
+function exportWeights() {
+  const o = { config: { ...CONFIG, n_layers: state.nLayers }, vocab: state.task.vocab, params: {} };
+  for (const { name, t } of state.model.list) o.params[name] = { rows: t.v.rows, cols: t.v.cols, data: Array.from(t.v.data) };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(o)], { type: "application/json" }));
+  a.download = "tinybert-weights.json"; a.click();
+}
+function importWeights(text) {
+  const o = JSON.parse(text);
+  if (o.config.n_layers !== state.nLayers || JSON.stringify(o.vocab) !== JSON.stringify(state.task.vocab)) throw new Error(`weights are for ${o.config.n_layers} layer(s) / vocab ${o.vocab.join(" ")}; select a matching task and layer count first`);
+  // Check every tensor before writing any, so a bad file leaves the model untouched.
+  for (const { name, t } of state.model.list) {
+    const p = o.params[name];
+    if (!p) throw new Error("missing " + name);
+    if (p.rows !== t.v.rows || p.cols !== t.v.cols || p.data.length !== t.v.data.length || !p.data.every(Number.isFinite)) throw new Error("bad shape or values in " + name);
+  }
+  for (const { name, t } of state.model.list) t.v.data.set(o.params[name].data);
+  state.trainer.resetOptimizer(); refresh();
+}
+function showTests() {
+  const res = runSelfTests(), failed = res.filter((r) => !r.pass);
+  $("testsBody").innerHTML = res.map((r) => `<div class="${r.pass ? "pass" : "fail"}">${r.pass ? "✓" : "✗"} ${esc(r.name)} — <span class="caption">${esc(r.detail)}</span></div>`).join("");
+  $("testsSummary").textContent = failed.length ? `Self-tests: ${failed.length} FAILED` : `Self-tests: all ${res.length} passed`;
+  const b = $("banner"); b.hidden = !failed.length;
+  if (failed.length) b.textContent = `SELF-TEST FAILURE: ${failed.map((f) => f.name).join("; ")}`;
+  console.log("[tinybert] self-tests", res.map((r) => `${r.pass ? "PASS" : "FAIL"} ${r.name}: ${r.detail}`));
+  return res;
+}
+
+function initUI() {
+  // Storage can be blocked by browser settings; remembering the guide state is optional.
+  const guide = $("guide"); try { if (localStorage.getItem("tinybert.guide") === "closed") guide.open = false; } catch {}
+  guide.addEventListener("toggle", () => { try { localStorage.setItem("tinybert.guide", guide.open ? "open" : "closed"); } catch {} });
+  $("seed").value = state.seed; $("lrIn").value = CONFIG.lr; $("clipIn").checked = true; $("decSel").value = String(state.dec);
+  state.task = state.tasks[0];
+  $("dataText").value = SAMPLE_DATA;
+  loadExample(state.task.gen(makeRng(state.seed + 2000)));
+  resetModel();
+
+  $("taskSel").onchange = (e) => setTask(+e.target.value);
+  $("layersSel").onchange = (e) => { state.nLayers = +e.target.value; state.layer = 0; resetModel(); };
+  $("layerSel").onchange = (e) => { state.layer = +e.target.value; renderStrip(); refresh(); };
+  $("resetBtn").onclick = () => { state.seed = parseInt($("seed").value, 10) || 0; state.uiRng = makeRng(state.seed + 2000); setTraining(false); resetModel(); };
+  $("decSel").onchange = (e) => { state.dec = +e.target.value; refresh(); };
+  $("testBtn").onclick = showTests;
+  $("exportBtn").onclick = exportWeights;
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = async (e) => { try { importWeights(await e.target.files[0].text()); } catch (err) { alert(err.message); } e.target.value = ""; };
+  $("randBtn").onclick = () => { loadExample(state.task.gen(state.uiRng)); renderChips(); refresh(); };
+  $("chips").onclick = (e) => { const t = e.target.closest("[data-toggle]"); if (t) { const i = +t.dataset.toggle; state.mask[i] = !state.mask[i]; renderChips(); refresh(); } };
+  $("chips").onchange = (e) => { const s = e.target.closest("[data-set]"); if (s) { state.truth[+s.dataset.set] = +s.value; renderChips(); refresh(); } };
+  $("dataLoad").onclick = () => loadData("Your data (pasted)");
+  $("exampleSets").onclick = (e) => {
+    const b = e.target.closest("button[data-ex]"); if (!b) return;
+    const ex = EXAMPLE_SETS.find((x) => x.id === b.dataset.ex), text = ex.text();
+    if (b.dataset.act === "dl") {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain" })); a.download = `tinybert-${ex.id}.${ex.id === "capitals" ? "jsonl" : "txt"}`; a.click(); return;
+    }
+    setTraining(false); $("dataText").value = text; loadData("Your data: " + ex.name); state.exampleId = ex.id; renderExamples();
+  };
+  $("dataFile").onchange = async (e) => { if (e.target.files[0]) { $("dataText").value = await e.target.files[0].text(); loadData("Your data: " + e.target.files[0].name); } e.target.value = ""; };
+
+  const go = (d) => { state.stage = (state.stage + d + STAGES.length) % STAGES.length; renderStrip(); refresh(); };
+  let playTimer = null;
+  const setPlay = (on) => { state.playing = on; clearInterval(playTimer); if (on) playTimer = setInterval(() => go(1), 1500); renderStrip(); };
+  $("strip").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.id === "prevBtn") go(-1); else if (b.id === "nextBtn") go(1); else if (b.id === "playBtn") setPlay(!state.playing);
+    else if (b.dataset.stage !== undefined) { state.stage = +b.dataset.stage; renderStrip(); refresh(); }
+  };
+  document.addEventListener("keydown", (e) => {
+    if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
+  });
+  $("heads").onchange = (e) => {
+    if (e.target.id === "circToggle") { state.showCirc = e.target.checked; refresh(); }
+    else if (e.target.dataset.ablate !== undefined) { state.model.ablate[+e.target.dataset.ablate] = e.target.checked; refresh(); }
+  };
+
+  $("trainBtn").onclick = () => setTraining(!state.trainer.running);
+  $("step1").onclick = () => stepN(1);
+  $("step100").onclick = () => stepN(100);
+  $("lrIn").onchange = (e) => { state.trainer.lr = parseFloat(e.target.value) || CONFIG.lr; };
+  $("clipIn").onchange = (e) => { state.trainer.clip = e.target.checked; };
+  $("snapBtn").onclick = () => {
+    const s = state.trainer.snapshot(); state.snapshots.push(s);
+    $("snapSel").insertAdjacentHTML("beforeend", `<option value="${state.snapshots.length - 1}">step ${s.step}</option>`);
+  };
+  $("snapSel").onchange = (e) => {
+    if (e.target.value === "") return;
+    setTraining(false); state.trainer.restore(state.snapshots[+e.target.value]); e.target.value = ""; refresh();
+  };
+
+  // (i) icons: turn <span data-ic="key"> placeholders into icons; hover shows, click pins
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.className = "i"; el.textContent = "i"; el.tabIndex = 0; el.dataset.info = el.dataset.ic; });
+  const pop = $("infoPop"); let pinned = null;
+  const showInfo = (el, pin) => {
+    const d = INFO[el.dataset.info]; if (!d) return;
+    pop.innerHTML = `<b class="t">${d[0]}</b>${d[1]}${pin ? `<div class="pin">click anywhere to close</div>` : ""}`;
+    pop.style.display = "block";
+    const r = el.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    pop.style.left = Math.max(6, Math.min(r.left, innerWidth - w - 8)) + "px";
+    pop.style.top = (r.bottom + h + 10 > innerHeight ? Math.max(6, r.top - h - 6) : r.bottom + 6) + "px";
+  };
+  const hideInfo = () => { pop.style.display = "none"; document.querySelectorAll(".i.on").forEach((x) => x.classList.remove("on")); };
+  document.addEventListener("click", (e) => {
+    const i = e.target.closest(".i");
+    if (i) { e.preventDefault(); e.stopPropagation(); const same = pinned === i.dataset.info; hideInfo(); pinned = same ? null : i.dataset.info; if (pinned) { i.classList.add("on"); showInfo(i, true); } }
+    else if (!e.target.closest("#infoPop")) { pinned = null; hideInfo(); }
+  }, true);
+  document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("i")) { e.preventDefault(); e.target.click(); } else if (e.key === "Escape") { pinned = null; hideInfo(); } });
+  document.addEventListener("focusin", (e) => { if (e.target.classList && e.target.classList.contains("i") && !pinned) showInfo(e.target, false); });
+  document.addEventListener("focusout", () => { if (!pinned) hideInfo(); });
+  document.addEventListener("mouseover", (e) => {
+    const ico = e.target.closest(".i");
+    if (ico) { if (!pinned) showInfo(ico, false); state.hover = null; applyHover(); return; }
+    if (!pinned && !e.target.closest("#infoPop")) hideInfo();
+    const td = e.target.closest("td[data-mid]");
+    if (td) state.hover = { kind: "cell", mid: td.dataset.mid, i: +td.dataset.i, j: +td.dataset.j };
+    else { const tk = e.target.closest("[data-tok]"); state.hover = tk ? { kind: "tok", i: +tk.dataset.tok } : null; }
+    applyHover();
+  });
+  document.addEventListener("mousemove", (e) => {
+    const tip = $("tip"); if (tip.style.display === "none") return;
+    const w = tip.offsetWidth, x = e.clientX + 14 + w > innerWidth ? e.clientX - w - 14 : e.clientX + 14;
+    tip.style.left = Math.max(4, x) + "px"; tip.style.top = Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 6) + "px";
+  });
+  document.addEventListener("mouseout", (e) => { if (!e.relatedTarget) { state.hover = null; applyHover(); } });
+  showTests();
+}
+
+if (typeof document !== "undefined") initUI();
+else { const r = runSelfTests(); console.log(r.map((x) => `${x.pass ? "PASS" : "FAIL"} ${x.name}: ${x.detail}`).join("\n")); }
+</script>
+</body>
+</html>
