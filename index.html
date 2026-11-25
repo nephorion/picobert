@@ -114,6 +114,24 @@ footer .btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .excard pre{margin:2px 0;padding:4px 6px;background:var(--bg);border-radius:4px;font-size:10.5px;overflow:auto;max-height:64px}
 .excard .btns{display:flex;gap:5px;margin-top:auto}
 .excard.on{border-color:var(--accent)}
+#tabs{display:flex;gap:4px;margin:8px 14px 0;border-bottom:1px solid var(--line)}
+#tabs button{border-radius:6px 6px 0 0;border-bottom:none;padding:5px 14px;color:var(--muted)}
+#tabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+#viewTrain section{margin:8px 14px;padding:10px;overflow:auto}
+#viewTrain h2{font-size:14px;margin:0 0 6px}
+#viewTrain h3{font-size:12px;margin:12px 0 4px}
+.tv-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.tv-card{display:flex;flex-direction:column;gap:2px;font-size:11px}
+table.tv{border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
+table.tv th,table.tv td{border:1px solid var(--line);padding:1px 5px;text-align:right;white-space:nowrap}
+table.tv th{color:var(--muted);font-weight:500}
+table.tv td[data-cell]{cursor:pointer}
+table.tv td.sel{outline:3px solid var(--fg);outline-offset:-3px}
+table.tv tr[data-tensor]{cursor:pointer}
+table.tv tr.sel{background:var(--chip);font-weight:600}
+.tv-mask{background:var(--mask);border-radius:3px;padding:0 2px}
+.tv-math{font:12px/1.6 ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 9px;margin-top:6px;overflow:auto}
+#tvSlider{width:min(520px,60vw)}
 </style>
 </head>
 <body>
@@ -134,6 +152,10 @@ footer .btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   <input id="importFile" type="file" accept=".json,application/json" hidden>
 </header>
 <div id="banner" hidden></div>
+<div id="tabs" role="tablist">
+  <button id="tabForward" role="tab" aria-selected="true" aria-controls="viewForward">Forward pass</button>
+  <button id="tabTrain" role="tab" aria-selected="false" aria-controls="viewTrain">Training</button>
+</div>
 <details id="guide" open>
   <summary><b>How to read this page</b> <span class="caption">— every <span class="i" style="cursor:default">i</span> icon explains the thing next to it; hover it, or click to keep it open.</span></summary>
   <div class="gcols">
@@ -157,12 +179,6 @@ footer .btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
     </div>
   </div>
 </details>
-<section id="seqbar">
-  <div><b>Input sequence</b><span data-ic="seq"></span></div>
-  <div id="chips"></div>
-  <button id="randBtn">Random example</button><span data-ic="random" style="margin-left:-6px;margin-top:6px"></span>
-  <div id="hint"></div>
-</section>
 <section id="dataPanel" hidden>
   <b>Train on your own data</b><span data-ic="data"></span>
   <div class="caption">Load one of the ready-made example sets below (each teaches a different attention pattern), or paste / upload your own.</div>
@@ -175,12 +191,20 @@ footer .btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
     <span id="dataStatus" class="caption"></span>
   </div>
 </section>
+<div id="viewForward" role="tabpanel">
+<section id="seqbar">
+  <div><b>Input sequence</b><span data-ic="seq"></span></div>
+  <div id="chips"></div>
+  <button id="randBtn">Random example</button><span data-ic="random" style="margin-left:-6px;margin-top:6px"></span>
+  <div id="hint"></div>
+</section>
 <nav id="strip"></nav>
 <div id="stageTitle"></div>
 <main>
   <section id="detail"></section>
   <aside id="heads"></aside>
 </main>
+</div>
 <footer id="train">
   <div class="grp">
     <div class="btns">
@@ -203,6 +227,31 @@ footer .btns{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   <div class="grp"><span class="caption">masked-token accuracy (moving avg)<span data-ic="accchart"></span></span><div id="accChart"></div></div>
   <div class="grp" style="flex:1;min-width:260px"><span class="caption">current example – predictions at masked positions<span data-ic="outbars"></span></span><div id="outSummary"></div></div>
 </footer>
+<div id="viewTrain" role="tabpanel" hidden>
+  <section>
+    <h2>One training step<span data-ic="tvstep"></span></h2>
+    <div class="caption">Shows the most recent optimizer step. Press <b>Step ×1</b> above to take one and see it here.</div>
+    <div id="tvStep"></div>
+  </section>
+  <section>
+    <h2>History over training<span data-ic="tvhistory"></span></h2>
+    <label>Per-tensor measure <select id="tvMetric"><option value="w">weight size ‖W‖</option><option value="g">gradient size ‖g‖ (before clipping)</option><option value="u">update size ‖ΔW‖</option></select></label>
+    <div id="tvHistory"></div>
+  </section>
+  <section>
+    <h2>Replay<span data-ic="tvreplay"></span></h2>
+    <div class="tv-row" style="align-items:center">
+      <button id="tvPlay">▶ Play</button>
+      <input id="tvSlider" type="range" min="0" max="0" value="0" aria-label="training step to show">
+      <span id="tvAt" class="stat"></span>
+    </div>
+    <h3>Attention forming<span data-ic="tvattn"></span></h3>
+    <div id="tvAttn"></div>
+    <h3>Embedding movement<span data-ic="tvembed"></span></h3>
+    <label><input type="checkbox" id="tvPos"> show position embeddings instead of token embeddings</label>
+    <div id="tvEmbed"></div>
+  </section>
+</div>
 <details id="tests"><summary><span id="testsSummary">Self-tests</span><span data-ic="tests"></span></summary><div id="testsBody"></div></details>
 <div id="tip"></div>
 <div id="infoPop"></div>
@@ -224,6 +273,8 @@ const CONFIG = {
   ln_eps: 1e-5,
   emb_std: 0.5,        // token / position embedding init: N(0, 0.5^2)
   seed: 1,
+  checkpointEvery: 5,   // Training tab: steps between weight checkpoints (doubles when the list fills up)
+  maxCheckpoints: 240,
   // --- training defaults (tuned so task 1 reaches >= 90% masked accuracy in 3000 steps, see README) ---
   lr: 0.01,
   batch: 16,
@@ -745,12 +796,45 @@ const SAMPLE_DATA = EXAMPLE_SETS[0].text();
 /* ==========================================================================
  * 6. TRAINER  (Adam, minibatch, optional global-norm clipping)
  * ========================================================================== */
+const l2 = (a) => Math.sqrt(a.reduce((s, x) => s + x * x, 0));
 class Trainer {
   constructor(model, task, rng) {
     this.model = model; this.task = task; this.rng = rng;
     this.lr = CONFIG.lr; this.clip = true; this.stepCount = 0; this.t = 0;
     this.history = []; this.recent = []; this.running = false; this.sps = 0;
     this.resetOptimizer();
+    this.resetRecording();
+  }
+  // What the Training tab reads. Recording only copies numbers, so it never changes the training run.
+  resetRecording() {
+    this.last = null; this.checkpoints = []; this.every = CONFIG.checkpointEvery; this.clearSums();
+    this.checkpoint();
+  }
+  clearSums() { this.sums = { n: 0, g: this.model.list.map(() => 0), u: this.model.list.map(() => 0) }; }
+  // Weights now, plus mean per-tensor gradient and update norms since the previous checkpoint.
+  checkpoint() {
+    const n = this.sums.n;
+    this.checkpoints.push({
+      step: this.stepCount, n,
+      weights: this.model.list.map(({ t }) => Float64Array.from(t.v.data)),
+      w: this.model.list.map(({ t }) => l2(t.v.data)),
+      g: n ? this.sums.g.map((x) => x / n) : null,
+      u: n ? this.sums.u.map((x) => x / n) : null,
+    });
+    this.clearSums();
+    // Too many: keep every other one (always the first and the newest) and record half as often.
+    if (this.checkpoints.length > CONFIG.maxCheckpoints) {
+      const end = this.checkpoints.length - 1;
+      const keep = (i) => i % 2 === 0 || i === end;
+      this.checkpoints.forEach((c, i) => {
+        if (keep(i) || !c.n) return;
+        const next = this.checkpoints[i + 1], n = c.n + next.n;   // next one covers both intervals
+        for (const key of ["g", "u"]) next[key] = c[key].map((x, k) => (x * c.n + (next.n ? next[key][k] * next.n : 0)) / n);
+        next.n = n;
+      });
+      this.checkpoints = this.checkpoints.filter((_, i) => keep(i));
+      this.every *= 2;
+    }
   }
   resetOptimizer() {
     this.t = 0;
@@ -762,17 +846,26 @@ class Trainer {
     const model = this.model, B = CONFIG.batch, { b1, b2, eps } = CONFIG.adam;
     for (const { t } of model.list) t.g = new Mat(t.v.rows, t.v.cols);
     let loss = 0, correct = 0, total = 0;
+    const batch = [];
     for (let b = 0; b < B; b++) {
       const ex = this.task.gen(this.rng);
       const tr = forward(model, ex.tokens, ex.maskedPositions, ex.targets);
       backward(tr.lossT, 1 / B);
       loss += tr.out.loss / B; correct += tr.out.correct; total += tr.out.n;
+      batch.push({ ex, loss: tr.out.loss, P: tr.out.P });
     }
+    const gRaw = model.list.map(({ t }) => Float64Array.from(t.g.data));
+    const gNorm = Math.hypot(...gRaw.map(l2));
+    let clipScale = 1;
     if (this.clip) {
       let n2 = 0; for (const { t } of model.list) for (const x of t.g.data) n2 += x * x;
       const norm = Math.sqrt(n2);
-      if (norm > CONFIG.clip) { const s = CONFIG.clip / norm; for (const { t } of model.list) for (let i = 0; i < t.g.data.length; i++) t.g.data[i] *= s; }
+      if (norm > CONFIG.clip) { const s = CONFIG.clip / norm; clipScale = s; for (const { t } of model.list) for (let i = 0; i < t.g.data.length; i++) t.g.data[i] *= s; }
     }
+    const before = {
+      w: model.list.map(({ t }) => Float64Array.from(t.v.data)),
+      m: this.m.map((x) => Float64Array.from(x)), v: this.v.map((x) => Float64Array.from(x)),
+    };
     this.t++;
     const c1 = 1 - Math.pow(b1, this.t), c2 = 1 - Math.pow(b2, this.t);
     model.list.forEach(({ t }, k) => {
@@ -784,6 +877,18 @@ class Trainer {
       }
     });
     this.stepCount++;
+    this.last = {
+      step: this.stepCount, t: this.t, lr: this.lr, clip: this.clip, loss, batch, gRaw, gNorm, clipScale, before,
+      g: model.list.map(({ t }) => Float64Array.from(t.g.data)),
+      m: this.m.map((x) => Float64Array.from(x)), v: this.v.map((x) => Float64Array.from(x)),
+      w: model.list.map(({ t }) => Float64Array.from(t.v.data)),
+    };
+    this.sums.n++;
+    model.list.forEach((_, k) => {
+      this.sums.g[k] += l2(gRaw[k]);
+      this.sums.u[k] += l2(this.last.w[k].map((x, i) => x - before.w[k][i]));
+    });
+    if (this.stepCount % this.every === 0) this.checkpoint();
     this.recent.push({ loss, acc: total ? correct / total : 0 });
     if (this.recent.length > 50) this.recent.shift();
     if (this.stepCount % 10 === 0) {
@@ -802,6 +907,10 @@ class Trainer {
     for (const [name, d] of s.data) this.model.list.find((p) => p.name === name).t.v.data.set(d);
     this.stepCount = s.step; this.history = this.history.filter((h) => h.step <= s.step); this.recent = [];
     this.resetOptimizer();
+    // Drop the recording of the abandoned future, and make the restored weights the newest point.
+    this.last = null; this.clearSums();
+    this.checkpoints = this.checkpoints.filter((c) => c.step < s.step);
+    this.checkpoint();
   }
 }
 
@@ -881,7 +990,7 @@ function runSelfTests() {
  * Exports for console poking
  * ========================================================================== */
 const root = typeof window !== "undefined" ? window : globalThis;
-const state = { taskIdx: 0, task: null, tasks: BUILTIN_TASKS.concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, snapshots: [], hover: null };
+const state = { taskIdx: 0, task: null, tasks: BUILTIN_TASKS.concat([{ id: "custom", name: "Your data… (paste / upload)", custom: true, vocab: ["[MASK]"], hint: "" }]), seed: CONFIG.seed, nLayers: CONFIG.n_layers, model: null, trainer: null, trace: null, truth: [], mask: [], stage: 0, layer: 0, dec: CONFIG.decimals, showCirc: false, playing: false, tab: "forward", tv: { tensor: 0, cell: 0, metric: "w", at: null, pos: false, timer: null }, snapshots: [], hover: null };
 root.tinybert = {
   config: CONFIG, state, forward, createModel, runSelfTests, Trainer, tasks: BUILTIN_TASKS, makeRng, parseDataset,
   get model() { return state.model; }, get trace() { return state.trace; }, get trainer() { return state.trainer; },
@@ -892,6 +1001,12 @@ root.tinybert = {
  * INFO TEXT for the (i) icons. Static strings; key → [title, html body].
  * ========================================================================== */
 const INFO = {
+  // ----- training tab -----
+  tvstep: ["One training step", `What the last optimizer step did, in order: run a batch of random examples forward, average their losses, backpropagate to get a gradient for every weight, shrink the gradients if their overall size is above the clipping limit, then let <b>Adam</b> turn each gradient into a small weight change.`],
+  tvhistory: ["History over training", `Loss and accuracy, then one small chart per weight tensor. Each has its own y-scale (the number at the top left), so compare shapes, not heights. Gradient and update sizes are averages over the steps between checkpoints. The red line is the replay position, which is the newest saved point unless you move it.`],
+  tvreplay: ["Replay", `The weights are saved every few steps (less often on long runs). Drag the slider or press Play to see attention and embeddings as they were at that step. At the far right it follows the newest saved point, so during training it can trail the step counter by a few steps.`],
+  tvattn: ["Attention forming", `Each head's attention on the <b>current input sequence</b>, computed with the weights from the chosen step. Rows are queries, columns keys. The small grids underneath show up to 8 points spread over the run.`],
+  tvembed: ["Embedding movement", `Each token (or position) is a 6-number vector. This squashes them to 2D along the two directions of largest spread and traces where each one has travelled. Distances are approximate: check the percentage shown.`],
   // ----- control bar -----
   task: ["Task", `The toy problem the model learns. Some tokens are hidden behind <code>[MASK]</code> and the model must guess them from the others — BERT's masked-language-model objective on tiny made-up data.<br>The sentence under the token boxes says which attention pattern to expect. Choose <b>Your data…</b> to train on your own sequences. Changing the task resets the model (the vocabulary changes).`],
   layers: ["Layers", `How many encoder blocks are stacked. <b>1</b> is easiest to read. With <b>2</b>, layer 2 reads layer 1's output, so heads can <i>compose</i>: one head moves information between tokens and a later head uses it. Changing this resets the model.`],
@@ -1381,7 +1496,200 @@ function renderTraining() {
   $("trainBtn").textContent = t.running ? "Pause" : "Train";
   $("outSummary").innerHTML = outputBars(state.trace, true);
 }
-function renderLive() { reg = {}; renderDetail(); renderHeads(); renderTraining(); applyHover(); }
+/* ----- Training tab: reads only what the Trainer recorded (trainer.last, .history, .checkpoints) ----- */
+function tvGrid(data, rows, cols, o = {}) {
+  const am = Math.max(1e-12, ...data.map(Math.abs));
+  let h = `<table class="tv">`;
+  for (let i = 0; i < rows; i++) {
+    h += `<tr>`;
+    for (let j = 0; j < cols; j++) {
+      const k = i * cols + j, v = data[k], text = o.sci ? v.toExponential(1).replace(/-/g, "−") : fmt(v);
+      h += `<td${o.pick ? ` data-cell="${k}"` : ""}${k === o.sel ? ` class="sel"` : ""} title="[${i},${j}] = ${v.toPrecision(6)}" style="background:${cellBg(v, o.kind, o.kind === "seq" ? 1 : am)}">${text}</td>`;
+    }
+    h += `</tr>`;
+  }
+  return h + `</table>`;
+}
+function tvStepHTML() {
+  const s = state.trainer.last;
+  if (!s) return `<p class="caption">No step to show yet. Press <b>Step ×1</b> or <b>Train</b>.</p>`;
+  const V = state.task.vocab, list = state.model.list, { b1, b2, eps } = CONFIG.adam;
+  const k = Math.min(state.tv.tensor, list.length - 1), { rows, cols } = list[k].t.v, c = Math.min(state.tv.cell, rows * cols - 1);
+
+  let h = `<h3>1. Forward: a batch of ${s.batch.length} random examples (step ${s.step})</h3><div id="tvBatch" style="max-height:220px;overflow:auto"><table class="tv"><tr><th>#</th><th>input (hidden token shown highlighted)</th><th>guess → truth (probability given to truth)</th><th>loss</th></tr>`;
+  s.batch.forEach(({ ex, loss, P }, b) => {
+    const toks = ex.truth.map((t, i) => ex.maskedPositions.includes(i) ? `<span class="tv-mask">${esc(V[t])}</span>` : esc(V[t])).join(" ");
+    const guesses = ex.maskedPositions.map((pos, m) => {
+      let best = 0; for (let j = 1; j < P.cols; j++) if (P.get(pos, j) > P.get(pos, best)) best = j;
+      const t = ex.targets[m];
+      return `<span style="color:var(--${best === t ? "good" : "bad"})">${best === t ? "✓" : "✗"} ${esc(V[best])} → ${esc(V[t])}</span> (${fmtN(P.get(pos, t), 2)})`;
+    }).join(" · ");
+    h += `<tr><td>${b + 1}</td><td>${toks}</td><td>${guesses}</td><td>${fmtN(loss)}</td></tr>`;
+  });
+  h += `</table></div>`;
+
+  h += `<h3>2. Loss: the mean over the batch</h3><div class="tv-math">loss = (1/${s.batch.length}) Σ example loss = <b>${fmtN(s.loss, 4)}</b></div>`;
+
+  h += `<h3>3. Backward: one gradient per weight, then clipping</h3><div class="tv-math">global norm ‖g‖ = √(Σ over all weights of g²) = ${fmtN(s.gNorm, 4)}<br>` +
+    (s.clipScale < 1 ? `larger than ${CONFIG.clip}, so every gradient is multiplied by ${CONFIG.clip} / ${fmtN(s.gNorm, 4)} = <b>${fmtN(s.clipScale, 4)}</b>` : `<b>not clipped</b> (${s.clip ? `not above ${CONFIG.clip}` : "clipping was off"})`) + `</div>`;
+
+  h += `<h3>4. Update: Adam moves every weight</h3><div class="caption">Click a tensor, then a cell in any of its grids.</div><div class="tv-row"><table class="tv"><tr><th>tensor</th><th>shape</th><th>‖g‖</th><th>‖ΔW‖</th></tr>`;
+  list.forEach(({ name, t }, i) => {
+    h += `<tr data-tensor="${i}"${i === k ? ` class="sel"` : ""}><td>${esc(name)}</td><td>${t.v.rows}×${t.v.cols}</td><td>${l2(s.gRaw[i]).toExponential(2)}</td><td>${l2(s.w[i].map((x, j) => x - s.before.w[i][j])).toExponential(2)}</td></tr>`;
+  });
+  h += `</table><div class="tv-row" style="flex:1;min-width:280px">`;
+  const delta = s.w[k].map((x, j) => x - s.before.w[k][j]);
+  for (const [title, data, sci] of [["weights before", s.before.w[k]], ["gradient (as used)", s.g[k], true], ["change ΔW", delta, true], ["weights after", s.w[k]]])
+    h += `<div class="tv-card"><b>${esc(list[k].name)}: ${title}</b><div style="max-width:100%;overflow:auto">${tvGrid(data, rows, cols, { pick: true, sel: c, sci })}</div></div>`;
+  h += `</div></div>`;
+
+  const g = s.g[k][c], m0 = s.before.m[k][c], v0 = s.before.v[k][c], m = s.m[k][c], v = s.v[k][c];
+  const mh = m / (1 - Math.pow(b1, s.t)), vh = v / (1 - Math.pow(b2, s.t)), n = (x) => x.toPrecision(4).replace(/-/g, "−");
+  h += `<div class="tv-math"><b>${esc(list[k].name)}[${Math.floor(c / cols)},${c % cols}]</b>, Adam update number t = ${s.t}<br>` +
+    `m = ${b1}·m_prev + ${n(1 - b1)}·g = ${b1}·${n(m0)} + ${n(1 - b1)}·${n(g)} = ${n(m)} <span class="caption">(running mean of g)</span><br>` +
+    `v = ${b2}·v_prev + ${n(1 - b2)}·g² = ${b2}·${n(v0)} + ${n(1 - b2)}·${n(g)}² = ${n(v)} <span class="caption">(running mean of g²)</span><br>` +
+    `m̂ = m / (1 − ${b1}^t) = ${n(mh)} &nbsp; v̂ = v / (1 − ${b2}^t) = ${n(vh)}<br>` +
+    `ΔW = −lr·m̂ / (√v̂ + ε) = −${s.lr}·${n(mh)} / (√${n(vh)} + ${eps}) = <b>${n(delta[c])}</b><br>` +
+    `new weight = ${n(s.before.w[k][c])} + (${n(delta[c])}) = <b>${n(s.w[k][c])}</b></div>`;
+  return h;
+}
+
+// Line chart against the training step. `pts` is [[step, value], …]; `mark` draws a cursor at that step.
+function stepChart(pts, color, W, H, mark, fixedMax) {
+  if (pts.length < 2) return `<svg class="chart" width="${W}" height="${H}"><text x="6" y="${H / 2}" font-size="10" fill="var(--muted)">not enough steps yet</text></svg>`;
+  const x0 = pts[0][0], x1 = pts[pts.length - 1][0], top = fixedMax || Math.max(...pts.map((p) => p[1]), 1e-12);
+  const px = (s) => 3 + ((s - x0) / (x1 - x0 || 1)) * (W - 6), py = (v) => H - 12 - Math.min(1, v / top) * (H - 24);
+  const label = top < 0.01 ? top.toExponential(1) : fmtN(top, 2);
+  return `<svg class="chart" width="${W}" height="${H}"><polyline fill="none" stroke="${color}" stroke-width="1.5" points="${pts.map(([s, v]) => `${px(s).toFixed(1)},${py(v).toFixed(1)}`).join(" ")}"/>` +
+    (mark !== undefined && mark >= x0 && mark <= x1 ? `<line x1="${px(mark)}" x2="${px(mark)}" y1="10" y2="${H - 10}" stroke="var(--hl)"/>` : "") +
+    `<text x="4" y="9" font-size="9" fill="var(--muted)">${label}</text><text x="4" y="${H - 2}" font-size="9" fill="var(--muted)">step ${x0}</text><text x="${W - 4}" y="${H - 2}" font-size="9" text-anchor="end" fill="var(--muted)">${x1}</text></svg>`;
+}
+function tvHistoryHTML(at) {
+  const t = state.trainer, metric = state.tv.metric;
+  let h = `<h3>Loss and masked-token accuracy (mean over the last ≤ 50 steps)</h3><div class="tv-row">` +
+    stepChart(t.history.map((x) => [x.step, x.loss]), "var(--accent)", 420, 120, at) +
+    stepChart(t.history.map((x) => [x.step, x.acc]), "var(--good)", 420, 120, at, 1) + `</div><h3>Per tensor</h3><div class="tv-row">`;
+  state.model.list.forEach(({ name }, k) => {
+    const pts = t.checkpoints.filter((c) => c[metric]).map((c) => [c.step, c[metric][k]]);
+    h += `<div class="tv-card"><b>${esc(name)}</b>${stepChart(pts, "var(--accent)", 200, 70, at)}</div>`;
+  });
+  return h + `</div>`;
+}
+
+// The checkpoint the slider points at: null means "follow the newest one".
+function tvIndex() {
+  const cps = state.trainer.checkpoints;
+  if (state.tv.at === null) return cps.length - 1;
+  let best = 0; cps.forEach((c, i) => { if (Math.abs(c.step - state.tv.at) < Math.abs(cps[best].step - state.tv.at)) best = i; });
+  return best;
+}
+// Attention of the current input sequence under a checkpoint's weights (run on a scratch copy of the model).
+function attentionAt(cp) {
+  const m = createModel(state.model.cfg, state.model.vocabSize, 0);
+  m.list.forEach(({ t }, k) => t.v.data.set(cp.weights[k]));
+  m.ablate = state.model.ablate.slice();
+  const ex = currentExample();
+  return forward(m, ex.tokens, ex.maskedPositions, ex.targets).layers.map((l) => l.heads.map((hd) => hd.A));
+}
+function heatSVG(A, color, cell, labels) {
+  const L = A.rows, pad = labels ? 52 : 0, size = pad + L * cell;
+  let s = `<svg width="${size}" height="${size}" style="color:var(--fg)">`;
+  for (let i = 0; i < L; i++) {
+    if (labels) s += `<text x="${pad - 3}" y="${pad + i * cell + cell * 0.7}" font-size="9" text-anchor="end" fill="currentColor">${esc(tokLabel(i))}</text><text transform="translate(${pad + i * cell + cell * 0.7},${pad - 3}) rotate(-90)" font-size="9" fill="currentColor">${esc(tokLabel(i))}</text>`;
+    for (let j = 0; j < L; j++) s += `<rect x="${pad + j * cell}" y="${pad + i * cell}" width="${cell - 1}" height="${cell - 1}" fill="${color}" fill-opacity="${Math.max(0.04, A.get(i, j)).toFixed(3)}"><title>A[${i},${j}] = ${fmtN(A.get(i, j))}</title></rect>`;
+  }
+  return s + `</svg>`;
+}
+function tvAttnHTML(idx) {
+  const cps = state.trainer.checkpoints, now = attentionAt(cps[idx]);
+  // up to 8 checkpoints spread over the whole run, for the filmstrip
+  const picks = [...new Set(Array.from({ length: 8 }, (_, i) => Math.round((i * (cps.length - 1)) / 7)))];
+  const film = picks.map((i) => ({ step: cps[i].step, A: attentionAt(cps[i]) }));
+  let h = "";
+  now.forEach((heads, l) => {
+    if (now.length > 1) h += `<b>Layer ${l + 1}</b>`;
+    h += `<div class="tv-row">` + heads.map((A, hh) => `<div class="tv-card"><b style="color:${headColor(hh)}">Head ${hh + 1}</b>${heatSVG(A, headColor(hh), 20, true)}</div>`).join("") + `</div>`;
+    h += `<table class="tv" style="margin:6px 0 10px"><tr><th>step</th>${film.map((f) => `<th>${f.step}</th>`).join("")}</tr>`;
+    heads.forEach((_, hh) => { h += `<tr><th style="color:${headColor(hh)}">head ${hh + 1}</th>${film.map((f) => `<td>${heatSVG(f.A[l][hh], headColor(hh), 7)}</td>`).join("")}</tr>`; });
+    h += `</table>`;
+  });
+  return h;
+}
+
+// Top two principal directions of the rows in `pts` (power iteration with deflation on the covariance).
+function pca2(pts) {
+  const d = pts[0].length, mean = Array.from({ length: d }, (_, j) => pts.reduce((s, p) => s + p[j], 0) / pts.length);
+  const C = Array.from({ length: d }, (_, a) => Array.from({ length: d }, (_, b) => pts.reduce((s, p) => s + (p[a] - mean[a]) * (p[b] - mean[b]), 0) / pts.length));
+  const total = C.reduce((s, r, i) => s + r[i], 0), axes = [], vars = [];
+  for (let a = 0; a < 2; a++) {
+    let v = Array.from({ length: d }, (_, i) => 1 + i * 0.1), lambda = 0;
+    for (let it = 0; it < 100; it++) {
+      const w = C.map((r) => r.reduce((s, x, j) => s + x * v[j], 0));
+      lambda = Math.hypot(...w); if (lambda < 1e-12) break;
+      v = w.map((x) => x / lambda);
+    }
+    axes.push(v); vars.push(lambda);
+    for (let i = 0; i < d; i++) for (let j = 0; j < d; j++) C[i][j] -= lambda * v[i] * v[j];
+  }
+  return { mean, axes, explained: total ? (vars[0] + vars[1]) / total : 0 };
+}
+function tvEmbedHTML(idx) {
+  const cps = state.trainer.checkpoints, pos = state.tv.pos, k = pos ? 1 : 0;    // list[0] = tokEmb, list[1] = posEmb
+  const { rows, cols } = state.model.list[k].t.v;
+  const rowsOf = (cp) => Array.from({ length: rows }, (_, i) => Array.from(cp.weights[k].subarray(i * cols, (i + 1) * cols)));
+  // Axes are fitted to the newest weights, so moving the slider does not rotate the picture.
+  const { mean, axes, explained } = pca2(rowsOf(cps[cps.length - 1]));
+  const project = (p) => axes.map((a) => a.reduce((s, x, j) => s + x * (p[j] - mean[j]), 0));
+  const paths = cps.map((cp) => rowsOf(cp).map(project));
+  const R = 1.1 * Math.max(0.1, ...paths.flat(2).map(Math.abs)), W = 460, sc = W / 2 / R;
+  const px = (x) => (W / 2 + x * sc).toFixed(1), py = (y) => (W / 2 - y * sc).toFixed(1);
+  let s = `<div class="caption">2D projection (PCA) of the ${cols}D vectors; these two axes hold ${(100 * explained).toFixed(0)}% of the spread at the newest step. ○ = first recorded step, ● = step ${cps[idx].step}.</div><svg width="${W}" height="${W}" class="chart" style="max-width:100%">`;
+  s += `<line x1="0" x2="${W}" y1="${W / 2}" y2="${W / 2}" stroke="var(--line)"/><line y1="0" y2="${W}" x1="${W / 2}" x2="${W / 2}" stroke="var(--line)"/>`;
+  for (let i = 0; i < rows; i++) {
+    const color = `hsl(${Math.round((i * 360) / rows)} 70% 50%)`, label = pos ? `pos ${i}` : state.task.vocab[i];
+    const trail = paths.slice(0, idx + 1).map((p) => `${px(p[i][0])},${py(p[i][1])}`).join(" ");
+    const [ax, ay] = paths[0][i], [bx, by] = paths[idx][i];
+    s += `<polyline fill="none" stroke="${color}" stroke-opacity=".55" points="${trail}"/><circle cx="${px(ax)}" cy="${py(ay)}" r="3" fill="none" stroke="${color}"/><circle cx="${px(bx)}" cy="${py(by)}" r="4" fill="${color}"/><text x="${+px(bx) + 6}" y="${+py(by) - 4}" font-size="11" fill="var(--fg)">${esc(label)}</text>`;
+  }
+  return s + `</svg>`;
+}
+function renderStep() {
+  const scroll = $("tvBatch") ? $("tvBatch").scrollTop : 0;
+  $("tvStep").innerHTML = tvStepHTML();
+  if ($("tvBatch")) $("tvBatch").scrollTop = scroll;
+}
+function renderTrainTab() {
+  const cps = state.trainer.checkpoints, idx = tvIndex(), slider = $("tvSlider");
+  slider.max = cps.length - 1; slider.value = idx;
+  $("tvAt").innerHTML = `step <b>${cps[idx].step}</b> of ${state.trainer.stepCount}${state.tv.at === null ? " (following the newest checkpoint)" : ""}`;
+  $("tvPlay").textContent = state.tv.timer ? "⏸ Pause" : "▶ Play";
+  renderStep();
+  $("tvHistory").innerHTML = tvHistoryHTML(cps[idx].step);
+  $("tvAttn").innerHTML = tvAttnHTML(idx);
+  $("tvEmbed").innerHTML = tvEmbedHTML(idx);
+}
+function tvSeek(idx) {
+  const cps = state.trainer.checkpoints;
+  state.tv.at = idx >= cps.length - 1 ? null : cps[idx].step;
+  renderTrainTab();
+}
+function tvStopPlay() { clearInterval(state.tv.timer); state.tv.timer = null; }
+function tvTogglePlay() {
+  if (state.tv.timer) { tvStopPlay(); renderTrainTab(); return; }
+  if (state.tv.at === null) state.tv.at = state.trainer.checkpoints[0].step;   // at the end: start over
+  state.tv.timer = setInterval(() => {
+    const next = tvIndex() + 1;
+    if (next >= state.trainer.checkpoints.length - 1) tvStopPlay();
+    tvSeek(next);
+  }, 150);
+  renderTrainTab();
+}
+
+function renderLive() {
+  reg = {};
+  if (state.tab === "train") renderTrainTab(); else { renderDetail(); renderHeads(); }
+  renderTraining(); applyHover();
+}
 
 /* ----- control bar ----- */
 function renderChips() {
@@ -1431,6 +1739,7 @@ function resetModel() {
   const old = state.trainer;
   state.trainer = new Trainer(state.model, state.task, makeRng(seed + 1000));
   if (old) { state.trainer.lr = old.lr; state.trainer.clip = old.clip; old.running = false; }
+  tvStopPlay(); state.tv.at = null;
   state.snapshots = []; $("snapSel").innerHTML = `<option value="">snapshots…</option>`;
   state.uiRng = makeRng(seed + 2000);
   state.layer = Math.min(state.layer, state.nLayers - 1);
@@ -1514,7 +1823,7 @@ function importWeights(text) {
     if (p.rows !== t.v.rows || p.cols !== t.v.cols || p.data.length !== t.v.data.length || !p.data.every(Number.isFinite)) throw new Error("bad shape or values in " + name);
   }
   for (const { name, t } of state.model.list) t.v.data.set(o.params[name].data);
-  state.trainer.resetOptimizer(); refresh();
+  state.trainer.resetOptimizer(); state.trainer.resetRecording(); tvStopPlay(); state.tv.at = null; refresh();
 }
 function showTests() {
   const res = runSelfTests(), failed = res.filter((r) => !r.pass);
@@ -1568,7 +1877,7 @@ function initUI() {
     else if (b.dataset.stage !== undefined) { state.stage = +b.dataset.stage; renderStrip(); refresh(); }
   };
   document.addEventListener("keydown", (e) => {
-    if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (state.tab !== "forward" || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
   });
   $("heads").onchange = (e) => {
@@ -1587,8 +1896,31 @@ function initUI() {
   };
   $("snapSel").onchange = (e) => {
     if (e.target.value === "") return;
-    setTraining(false); state.trainer.restore(state.snapshots[+e.target.value]); e.target.value = ""; refresh();
+    setTraining(false); tvStopPlay(); state.tv.at = null; state.trainer.restore(state.snapshots[+e.target.value]); e.target.value = ""; refresh();
   };
+
+  // Tabs. The training controls (footer) are shared: on the Training tab they move to the top.
+  const footer = $("train"), footerHome = $("tests");
+  const setTab = (tab) => {
+    state.tab = tab; const train = tab === "train";
+    setPlay(false); tvStopPlay();
+    $("viewForward").hidden = train; $("guide").hidden = train; $("viewTrain").hidden = !train;
+    $("tabForward").setAttribute("aria-selected", !train); $("tabTrain").setAttribute("aria-selected", train);
+    if (train) { footer.style.marginTop = "8px"; $("viewTrain").before(footer); } else { footer.style.marginTop = ""; footerHome.before(footer); }
+    state.hover = null; refresh();
+  };
+  $("tabForward").onclick = () => setTab("forward");
+  $("tabTrain").onclick = () => setTab("train");
+  // pointerdown, not click: while training the tables are redrawn too often for a click to land
+  $("tvStep").onpointerdown = (e) => {
+    const row = e.target.closest("[data-tensor]"), cell = e.target.closest("[data-cell]");
+    if (row) { state.tv.tensor = +row.dataset.tensor; state.tv.cell = 0; } else if (cell) state.tv.cell = +cell.dataset.cell; else return;
+    renderStep();
+  };
+  $("tvMetric").onchange = (e) => { state.tv.metric = e.target.value; renderTrainTab(); };
+  $("tvSlider").oninput = (e) => { tvStopPlay(); tvSeek(+e.target.value); };
+  $("tvPlay").onclick = tvTogglePlay;
+  $("tvPos").onchange = (e) => { state.tv.pos = e.target.checked; renderTrainTab(); };
 
   // (i) icons: turn <span data-ic="key"> placeholders into icons; hover shows, click pins
   document.querySelectorAll("[data-ic]").forEach((el) => { el.className = "i"; el.textContent = "i"; el.tabIndex = 0; el.dataset.info = el.dataset.ic; });
