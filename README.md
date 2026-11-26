@@ -7,6 +7,8 @@
 
 ### [▶ Open the live demo](https://nephorion.github.io/picobert/)
 
+**☕ Support this project:** [ko-fi.com/museofnephorion](https://ko-fi.com/museofnephorion)
+
 ![The forward-pass view after 3000 steps on the default Twin pairs task: for the masked token, head 2 puts 0.98 of its attention on the token's twin](docs/screenshot.png)
 
 ## Three things to try
@@ -46,6 +48,6 @@ The hosted copy (nephorion.github.io/picobert) uses [GoatCounter](https://www.go
 
 The numbers are public: **[usage dashboard](https://nephorion.goatcounter.com/?filter=picobert)** (updated hourly).
 
-## Support and license
+## License
 
-☕ [Support this project on Ko-fi](https://ko-fi.com/museofnephorion) · [MIT](LICENSE) © 2026 Nephorion
+[MIT](LICENSE) © 2026 Nephorion
