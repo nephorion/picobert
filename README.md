@@ -5,6 +5,8 @@
 
 **Live demo:** https://nephorion.github.io/picobert/
 
+**📊 Usage stats:** [public dashboard for picobert](https://nephorion.goatcounter.com/?filter=picobert) (updated hourly)
+
 **☕ Support this project:** [ko-fi.com/museofnephorion](https://ko-fi.com/museofnephorion)
 
 ![The forward-pass view after 3000 steps on the default Twin pairs task: for the masked token, head 2 puts 0.98 of its attention on the token's twin](docs/screenshot.png)
@@ -22,6 +24,10 @@ Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, work
 The page opens on **Twin pairs**: every token appears twice in a row, so a masked token can only be read from its neighbour in the pair, and a head has to find it. On the **Forward pass** tab you can **drag any weight** in the left panel up or down (dashed grids marked ↕, hold Shift for fine steps; steps that have them are marked ↕ in the pipeline strip) and watch the forward pass recompute. The loss and accuracy on 64 fixed examples follow your edit, beside the pointer and as a highlighted line on the training graphs. Dragging pauses training; save a snapshot first if you want to get back. For the embeddings stage, dragging a looked-up row edits the underlying token or position table.
 
 Twin pairs, 3000 steps, seeds 1–10: nine reach 100 % masked accuracy by step 1000, with the best head putting 0.64–0.94 of a masked position's attention on its twin. Seed 5 is the exception (about 60 % accuracy at step 3000). This built-in task never hides both twins; the *Twin pairs* example set under *Your data…* can, which is why its ceiling and measurements differ.
+
+## Usage counts
+
+The hosted copy (nephorion.github.io/picobert) uses [GoatCounter](https://www.goatcounter.com) (no cookies) to count visits and, once per page load, which features are used: tour steps reached, finished or left; Train and Step; the Training tab; dragging a weight; which task or example set; whether your own data was loaded, as text or from a file; and Ko-fi, GitHub and stats link clicks. The numbers are [public](https://nephorion.goatcounter.com/?filter=picobert). It also records the referring page, screen width and anything after `?` in the address. Sequences, file names and weights are never sent. The counting script is a pinned version with an integrity check. Opened from disk or hosted elsewhere, the page loads nothing and sends nothing. To leave your own visits out, open the live page once with `#toggle-goatcounter` added to the address.
 
 ## Self-tests in CI
 

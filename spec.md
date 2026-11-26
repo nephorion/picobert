@@ -25,7 +25,7 @@ The goal is to build **intuition** for the computation. It isn't meant to be use
 
 ## 2. Technical constraints
 
-- **One self-contained file: `index.html`** with inline CSS and JS. No build step, no npm, no CDN dependencies. Opening the file from disk must work offline.
+- **One self-contained file: `index.html`** with inline CSS and JS. No build step, no npm, no CDN dependencies. Opening the file from disk must work offline. One exception, for the hosted copy only: it loads GoatCounter to count visits and feature use (see README).
 - Vanilla JS (ES2020+), SVG and/or Canvas for drawing. No frameworks.
 - All math implemented by hand (see §4). No TensorFlow.js or similar.
 - Deterministic: seeded PRNG (e.g. mulberry32). Same seed → same init → same training run.
