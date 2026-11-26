@@ -280,7 +280,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
   </section>
 </div>
 <details id="tests"><summary><span id="testsSummary">Self-tests</span><span data-ic="tests"></span></summary><div id="testsBody"></div></details>
-<div class="caption" style="margin:0 14px 14px">The copy hosted at nephorion.github.io counts visits and which features get used, with <a href="https://www.goatcounter.com/help/privacy" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a> (no cookies). Your sequences and weights are never sent. Opened from disk, this page sends nothing.</div>
+<div class="caption" style="margin:0 14px 14px">The copy hosted at nephorion.github.io counts visits and which features get used, with <a href="https://www.goatcounter.com/help/privacy" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a> (no cookies). It also records the referring page, your screen width and anything after ? in the address. Your sequences, file names and weights are never sent. Opened from disk, this page sends nothing.</div>
 <div id="tip"></div>
 <div id="tourSpot" hidden></div>
 <div id="tourCard" role="dialog" aria-labelledby="tourTitle" hidden>
@@ -1771,9 +1771,11 @@ function tvTogglePlay() {
 /* ----- usage counts (GoatCounter: no cookies). Only the hosted copy sends anything; opened from disk
  * or served anywhere else, track() does nothing and no outside script is loaded. Only the fixed event
  * names below are sent, never sequences, tokens, file names or weights. ----- */
-const STATS = { host: "nephorion.github.io", endpoint: "https://nephorion.goatcounter.com/count", script: "https://gc.zgo.at/count.js" };
+const STATS = { host: "nephorion.github.io", endpoint: "https://nephorion.goatcounter.com/count", script: "https://gc.zgo.at/count.v5.js",
+  // pinned (goatcounter.com/help/countjs-versions): the browser refuses to run the file if it changes
+  integrity: "sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ" };
 const counted = new Set(), waiting = [];
-const statsOn = () => location.hostname === STATS.host && location.pathname.startsWith("/picobert");
+const statsOn = () => location.protocol === "https:" && location.hostname === STATS.host && location.pathname.startsWith("/picobert/");
 function sendCount(name) {
   try { window.goatcounter.count({ path: "picobert/" + name, title: name, event: true }); } catch {}   // counting must never break the page
 }
@@ -1786,13 +1788,19 @@ function track(name) {
 function initStats() {
   if (!statsOn()) return;
   const el = document.createElement("script");
-  el.async = true; el.src = STATS.script; el.dataset.goatcounter = STATS.endpoint;
+  el.async = true; el.crossOrigin = "anonymous"; el.integrity = STATS.integrity; el.src = STATS.script; el.dataset.goatcounter = STATS.endpoint;
   el.onload = () => waiting.splice(0).forEach(sendCount);               // the script counts the page view itself
   document.head.appendChild(el);
   document.addEventListener("click", (e) => {
     const a = e.target.closest("a.kofi, a.gh-corner");
     if (a) track(a.classList.contains("kofi") ? "link/kofi" : "link/github");
   }, true);
+}
+
+// Count "used own data" only if it parses and is not the sample or one of the example sets.
+function trackOwnData(how, text) {
+  const ds = parseDataset(text, CONFIG.seq_len), norm = (s) => s.replace(/\r/g, "").trim();
+  if (!ds.errors.length && ds.examples.length && !EXAMPLE_SETS.some((x) => norm(x.text()) === norm(text))) track(how);
 }
 
 /* ----- guided tour: dims the page, lights one part, and explains it. The page stays usable. ----- */
@@ -2167,7 +2175,7 @@ function initUI() {
   $("randBtn").onclick = () => { loadExample(state.task.gen(state.uiRng)); renderChips(); refresh(); };
   $("chips").onclick = (e) => { const t = e.target.closest("[data-toggle]"); if (t) { const i = +t.dataset.toggle; state.mask[i] = !state.mask[i]; renderChips(); refresh(); } };
   $("chips").onchange = (e) => { const s = e.target.closest("[data-set]"); if (s) { state.truth[+s.dataset.set] = +s.value; renderChips(); refresh(); } };
-  $("dataLoad").onclick = () => { track("data/pasted"); loadData("Your data (pasted)"); };
+  $("dataLoad").onclick = () => { trackOwnData("data/own-text", $("dataText").value); loadData("Your data (pasted)"); };
   $("exampleSets").onclick = (e) => {
     const b = e.target.closest("button[data-ex]"); if (!b) return;
     const ex = EXAMPLE_SETS.find((x) => x.id === b.dataset.ex), text = ex.text();
@@ -2176,7 +2184,7 @@ function initUI() {
     }
     track(`data/example-${ex.id}`); setTraining(false); $("dataText").value = text; loadData("Your data: " + ex.name); state.exampleId = ex.id; renderExamples();
   };
-  $("dataFile").onchange = async (e) => { if (e.target.files[0]) { track("data/uploaded"); $("dataText").value = await e.target.files[0].text(); loadData("Your data: " + e.target.files[0].name); } e.target.value = ""; };
+  $("dataFile").onchange = async (e) => { if (e.target.files[0]) { $("dataText").value = await e.target.files[0].text(); trackOwnData("data/own-file", $("dataText").value); loadData("Your data: " + e.target.files[0].name); } e.target.value = ""; };
 
   const go = (d) => { state.stage = (state.stage + d + STAGES.length) % STAGES.length; renderStrip(); refresh(); };
   let playTimer = null;

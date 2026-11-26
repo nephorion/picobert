@@ -25,7 +25,7 @@ Twin pairs, 3000 steps, seeds 1–10: nine reach 100 % masked accuracy by step 1
 
 ## Usage counts
 
-The hosted copy (nephorion.github.io/picobert) uses [GoatCounter](https://www.goatcounter.com) (no cookies) to count visits and, once per page load, which features are used: tour steps reached, finished or left; Train and Step; the Training tab; dragging a weight; which task or example set; whether data was pasted or uploaded; and Ko-fi and GitHub link clicks. GoatCounter also records things like referrer and screen width. Sequences, file names and weights are never sent. Opened from disk or hosted elsewhere, the page loads nothing and sends nothing. To leave your own visits out, open the live page once with `#toggle-goatcounter` added to the address.
+The hosted copy (nephorion.github.io/picobert) uses [GoatCounter](https://www.goatcounter.com) (no cookies) to count visits and, once per page load, which features are used: tour steps reached, finished or left; Train and Step; the Training tab; dragging a weight; which task or example set; whether your own data was loaded, as text or from a file; and Ko-fi and GitHub link clicks. It also records the referring page, screen width and anything after `?` in the address. Sequences, file names and weights are never sent. The counting script is a pinned version with an integrity check. Opened from disk or hosted elsewhere, the page loads nothing and sends nothing. To leave your own visits out, open the live page once with `#toggle-goatcounter` added to the address.
 
 ## Self-tests in CI
 
