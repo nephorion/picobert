@@ -161,6 +161,18 @@ table.tv tr.sel{background:var(--chip);font-weight:600}
 #tourOffer{right:14px;bottom:14px}
 #tourConfirm{width:360px;max-width:calc(100vw - 16px);background:var(--panel);color:var(--fg);border:1px solid var(--accent);border-radius:9px;padding:12px 14px;box-shadow:0 8px 28px #0006}
 #tourConfirm::backdrop{background:rgba(0,0,0,.5)}
+#storyBtn{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit}
+#story{width:620px;max-width:calc(100vw - 16px);max-height:calc(100vh - 32px);padding:0;background:var(--panel);color:var(--fg);border:1px solid var(--accent);border-radius:9px;box-shadow:0 8px 28px #0006}
+#story[open]{display:flex;flex-direction:column}
+#story::backdrop{background:rgba(0,0,0,.5)}
+.story-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.story-body{overflow:auto;padding:4px 14px 14px}
+.story-body h3{font-size:14px;margin:16px 0 8px}
+.msg{margin:6px 0;padding:7px 11px;border-radius:11px;max-width:86%;width:fit-content}
+.msg span{display:block;font-size:11px;font-weight:700;color:var(--muted)}
+.msg.you{margin-left:auto;background:var(--chip);border-bottom-right-radius:3px}
+.msg.ai{background:var(--bg);border:1px solid var(--line);border-bottom-left-radius:3px}
+.story-note{margin:8px 0}
 #tourCard[hidden],#tourOffer[hidden],#tourSpot[hidden]{display:none}
 .tour-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:5px}
 .tour-btns{display:flex;gap:6px;margin-top:10px}
@@ -186,6 +198,7 @@ button:disabled{opacity:.45;cursor:default}
   <button id="importBtn">Import weights</button><span data-ic="import" style="margin-left:-8px"></span>
   <input id="importFile" type="file" accept=".json,application/json" hidden>
   <a class="stats" href="https://nephorion.goatcounter.com/?filter=picobert" target="_blank" rel="noopener">Usage stats</a>
+  <button id="storyBtn" type="button">How it was made</button>
   <a class="kofi" href="https://ko-fi.com/museofnephorion" target="_blank" rel="noopener">☕ Support on Ko-fi</a>
 </header>
 <div id="banner" hidden></div>
@@ -306,6 +319,33 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
   <div id="tourBody" aria-live="polite"></div>
   <div class="tour-btns"><button id="tourSkip">Skip tour</button><span class="sep"></span><button id="tourBack">Back</button><button id="tourNext" class="primary">Next</button></div>
 </div>
+<dialog id="story" aria-labelledby="storyTitle">
+  <div class="story-head"><b id="storyTitle">How this was made</b><button id="storyClose" autofocus>Close</button></div>
+  <div class="story-body" tabindex="0">
+  <p class="caption">A flavour of the conversations behind this page, condensed and tidied: not word for word.</p>
+  <h3>1 · It started as a question</h3>
+  <p class="msg you"><span>Human</span>I’m studying BERT. The attention heads seem to be basically a cross-correlation?</p>
+  <p class="msg ai"><span>AI</span>Partly. QKᵀ is a similarity score, but it compares all pairs rather than sliding one signal along another, and softmax makes the tokens compete.</p>
+  <p class="msg you"><span>Human</span>Query, key, value… to me they just look like parameters learned by minimisation. Do the names mean anything?</p>
+  <p class="msg ai"><span>AI</span>The names describe where each matrix sits: Q and K decide who to read from, V decides what gets read. On their own, W<sub>Q</sub> and W<sub>K</sub> mean little; only their product does.</p>
+  <p class="msg you"><span>Human</span>I like the visual page idea. Can you write a spec for Claude Code to go and implement it?</p>
+  <p class="msg ai"><span>AI</span>Written: one offline page, a model of 6 numbers per token and 3 heads, 11 stages you can step through, live training and self-tests. Nothing is built yet.</p>
+  <h3>2 · Then it was steered, a sentence or two at a time</h3>
+  <p class="story-note">Claude Code built the first version from that spec. After that the conversations looked like this.</p>
+  <p class="msg you"><span>Human</span>Can we build a visualiser for the training process, maybe on a separate tab?</p>
+  <p class="msg ai"><span>Claude</span>Yes: one training step in full, history for each weight, and a replay that shows attention forming.</p>
+  <p class="msg you"><span>Human</span>I’ve seen sites with guided tours that show you how to use them. Can we do that here, and what would it look like?</p>
+  <p class="msg ai"><span>Claude</span>Eight short steps on the live page: the puzzle, an untrained guess, you train it, then find the head that solved it.</p>
+  <p class="msg you"><span>Human</span>I can change some of the weights by dragging. I’d like to see the loss graphs update, and we need an indicator for which weights can be edited.</p>
+  <p class="msg ai"><span>Claude</span>Editable grids are now dashed and marked, and each edit is scored on the same 64 examples, so any change is down to your edit alone.</p>
+  <h3>3 · It did not all work first time</h3>
+  <p class="story-note">The spec promised a head that looks at the neighbouring token. Training solved the task without growing a clean one, so the promise was relaxed. The page now opens on a puzzle, <b>Twin pairs</b>, where a head has to find the neighbour.</p>
+  <p class="story-note">A stray code comment once blanked the task description, and it got as far as a pull request before anyone noticed. The page now has a browser test that checks for it.</p>
+  <p class="story-note">A review before release found that the new keyboard controls were blocking the browser’s Back shortcut. Fixed before it shipped.</p>
+  <h3>What the human did</h3>
+  <p class="story-note">Asked questions, chose what to build next, tried it, said what looked wrong, and decided when it was ready. All the code was written by Claude Code.</p>
+  </div>
+</dialog>
 <dialog id="tourConfirm" aria-labelledby="tourConfirmTitle" aria-describedby="tourConfirmText">
   <div class="tour-head"><b id="tourConfirmTitle">Start the tour?</b></div>
   <div id="tourConfirmText">The tour starts with a fresh, untrained <b>Twin pairs</b> model. Your current model and its snapshots will be <b>discarded</b>.<div class="caption" style="margin-top:6px">To keep the weights, cancel and use <b>Export weights</b> first.</div></div>
@@ -1951,7 +1991,7 @@ function initTour(setTab) {
   $("tourNext").onclick = next; $("tourBack").onclick = back; $("tourSkip").onclick = end;
   // Capture phase, so that during the tour the arrow keys move the tour and not the pipeline.
   window.addEventListener("keydown", (e) => {
-    if (at < 0 || keyEdit || e.altKey || e.ctrlKey || e.metaKey || (e.key !== "Escape" && (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.matches(GRID_ITEMS)))) return;
+    if (at < 0 || keyEdit || document.querySelector("dialog[open]") || e.altKey || e.ctrlKey || e.metaKey || (e.key !== "Escape" && (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.matches(GRID_ITEMS)))) return;
     if (e.key === "ArrowRight") next(); else if (e.key === "ArrowLeft") back(); else if (e.key === "Escape") end(); else return;
     e.preventDefault(); e.stopPropagation();
   }, true);
@@ -2312,7 +2352,7 @@ function initUI() {
     else if (b.dataset.stage !== undefined) { state.stage = +b.dataset.stage; renderStrip(); refresh(); }
   };
   document.addEventListener("keydown", (e) => {
-    if (e.altKey || e.ctrlKey || e.metaKey || state.tab !== "forward" || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || state.tab !== "forward" || document.querySelector("dialog[open]") || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
   });
   $("heads").onchange = (e) => {
@@ -2321,6 +2361,9 @@ function initUI() {
   };
 
   $("detail").onpointerdown = startWeightDrag;
+  $("storyBtn").onclick = () => { $("story").showModal(); document.querySelector(".story-body").scrollTop = 0; };
+  $("storyClose").onclick = () => $("story").close();
+  $("story").onclick = (e) => { if (e.target === $("story")) $("story").close(); };   // click outside
   $("detail").addEventListener("keydown", gridKeys);
   $("tvStep").addEventListener("keydown", gridKeys);
   // Leaving the cell being edited keeps the value. Checked a moment later, because redrawing also blurs.

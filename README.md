@@ -4,6 +4,8 @@
 
 > [!IMPORTANT]
 > **All code here was written by an LLM (Claude Code), directed by a human.**
+>
+> For a flavour of the conversations, open **How it was made** at the top of the page.
 
 ### [▶ Open the live demo](https://nephorion.github.io/picobert/)
 
