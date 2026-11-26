@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tiny BERT Visualizer</title>
+<meta name="description" content="Watch a tiny BERT learn: every number in every step of attention, trained live in your browser, with a 2-minute guided tour.">
+<link rel="canonical" href="https://nephorion.github.io/picobert/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://nephorion.github.io/picobert/">
+<meta property="og:title" content="Tiny BERT Visualizer">
+<meta property="og:description" content="Watch a tiny BERT learn: every number in every step of attention, trained live in your browser, with a 2-minute guided tour.">
+<meta property="og:image" content="https://nephorion.github.io/picobert/docs/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The visualizer: attention heads with query and key arrows and heatmaps">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314161b'/%3E%3Crect x='3' y='3' width='8' height='8' rx='2' fill='%238b5cf6' opacity='1'/%3E%3Crect x='12' y='3' width='8' height='8' rx='2' fill='%230d9488' opacity='0.45'/%3E%3Crect x='21' y='3' width='8' height='8' rx='2' fill='%23db2777' opacity='0.2'/%3E%3Crect x='3' y='12' width='8' height='8' rx='2' fill='%238b5cf6' opacity='0.45'/%3E%3Crect x='12' y='12' width='8' height='8' rx='2' fill='%230d9488' opacity='1'/%3E%3Crect x='21' y='12' width='8' height='8' rx='2' fill='%23db2777' opacity='0.45'/%3E%3Crect x='3' y='21' width='8' height='8' rx='2' fill='%238b5cf6' opacity='0.2'/%3E%3Crect x='12' y='21' width='8' height='8' rx='2' fill='%230d9488' opacity='0.45'/%3E%3Crect x='21' y='21' width='8' height='8' rx='2' fill='%23db2777' opacity='1'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -79,6 +90,10 @@ table.mat.editable td{border:1px dashed var(--accent)}
 .editable-tag{display:inline-block;margin-left:6px;padding:0 5px;border:1px dashed var(--accent);border-radius:8px;color:var(--accent);font-size:10px;white-space:nowrap}
 #strip .st.w::after{content:" ↕";color:var(--accent);font-weight:700}
 #strip .st.w.on::after{color:#fff}
+td[data-w]:focus-visible,td[data-cell]:focus-visible,tr[data-tensor]:focus-visible{outline:3px solid var(--accent);outline-offset:-2px}
+td.editing{outline:3px solid var(--hl) !important;outline-offset:-2px;font-weight:700}
+#smallScreen{display:none;margin:8px 14px 0}
+@media (max-width:700px){#smallScreen{display:block}}
 td.hl{outline:2px solid var(--hl);outline-offset:-2px}
 td.hlsrc{outline:3px solid var(--fg);outline-offset:-3px}
 .tokhl{outline:2px solid var(--hl);outline-offset:1px;border-radius:3px}
@@ -159,7 +174,7 @@ button:disabled{opacity:.45;cursor:default}
 </a>
 <header>
   <h1>Tiny BERT Visualizer</h1>
-  <button id="tourBtn" class="primary">Take the tour</button><span data-ic="tour" style="margin-left:-8px"></span>
+  <span style="white-space:nowrap"><button id="tourBtn" class="primary">Take the tour</button><span data-ic="tour"></span></span>
   <label>Task<span data-ic="task"></span> <select id="taskSel"></select></label>
   <label>Layers<span data-ic="layers"></span> <select id="layersSel"><option>1</option><option>2</option></select></label>
   <label id="layerWrap" hidden>View layer<span data-ic="viewlayer"></span> <select id="layerSel"></select></label>
@@ -178,6 +193,7 @@ button:disabled{opacity:.45;cursor:default}
   <button id="tabForward" role="tab" aria-selected="true" aria-controls="viewForward">Forward pass</button>
   <button id="tabTrain" role="tab" aria-selected="false" aria-controls="viewTrain">Training</button>
 </div>
+<div id="smallScreen" class="caption">Best on a desktop: the matrices are wide, so on a small screen you will be scrolling sideways inside panels.</div>
 <details id="guide" open>
   <summary><b>How to read this page</b> <span class="caption">— every <span class="i" style="cursor:default">i</span> icon explains the thing next to it; hover it, or click to keep it open.</span></summary>
   <div class="gcols">
@@ -198,7 +214,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
       <ol>
         <li>Press <b>→</b> a few times (or click the stage buttons) to walk through one forward pass.</li>
         <li>Hover any number in a computed matrix: the exact arithmetic appears and its inputs light up.</li>
-        <li><b>Drag a weight</b> (dashed cells, marked <b>↕ drag to edit</b>) up or down and watch the attention and output change. Save a snapshot first if you want to get back.</li>
+        <li><b>Drag a weight</b> (dashed cells, marked <b>↕ drag to edit</b>) up or down, or Tab to it, press Enter and use ↑ ↓ and watch the attention and output change. Save a snapshot first if you want to get back.</li>
         <li>In the bottom panel press <b>Step ×100</b> a few times, or <b>Train</b>. Watch the loss fall and the attention heatmaps sharpen.</li>
         <li>Click a token box in the top bar to mask a different position and see how the prediction changes.</li>
         <li>Choose the task <b>Your data…</b> to train on your own sequences — ready-made example sets are provided.</li>
@@ -1079,7 +1095,7 @@ const INFO = {
   task: ["Task", `The toy problem the model learns. Some tokens are hidden behind <code>[MASK]</code> and the model must guess them from the others — BERT's masked-language-model objective on tiny made-up data.<br>The sentence under the token boxes says which attention pattern to expect. Choose <b>Your data…</b> to train on your own sequences. Changing the task resets the model (the vocabulary changes).`],
   layers: ["Layers", `How many encoder blocks are stacked. <b>1</b> is easiest to read. With <b>2</b>, layer 2 reads layer 1's output, so heads can <i>compose</i>: one head moves information between tokens and a later head uses it. Changing this resets the model.`],
   viewlayer: ["View layer", `Which layer the stages 2–10 and the heads panel show. Stage 1 (embeddings) and 11 (output) belong to the whole model.`],
-  seed: ["Seed", `Seeds the random number generator. Same seed → identical starting weights and identical training batches, so a run is reproducible. Try another seed and press <b>Reset model</b>: different starts often find different attention solutions to the same task.`],
+  seed: ["Seed", `Seeds the random number generator. Same seed → identical starting weights and identical training batches, so a run is reproducible. Try another seed and press <b>Reset model</b>: different starts often find different attention solutions to the same task. Some runs are just slow: on Twin pairs, seed <b>5</b> is only about 60% accurate after 3000 steps but reaches 99% by 10,000.`],
   reset: ["Reset model", `Re-initialises all weights from the seed, zeroes the optimiser and the training curves, and discards snapshots.`],
   decimals: ["Decimals", `How many decimals matrix cells show (2 or 3). The numbers underneath always keep full precision; the hover explanations use the same rounding.`],
   selftests: ["Self-tests", `Re-runs the correctness checks: autograd gradients vs finite differences, softmax rows sum to 1, LayerNorm rows have mean 0 / variance 1, trace shapes, and seed determinism. A red banner appears if any fail. They also run once when the page loads.`],
@@ -1584,7 +1600,7 @@ function renderTraining() {
 /* ----- Training tab: reads only what the Trainer recorded (trainer.last, .history, .checkpoints) ----- */
 function tvGrid(data, rows, cols, o = {}) {
   const am = Math.max(1e-12, ...data.map(Math.abs));
-  let h = `<table class="tv">`;
+  let h = `<table class="tv"${o.grid ? ` data-grid="${o.grid}"` : ""}>`;
   for (let i = 0; i < rows; i++) {
     h += `<tr>`;
     for (let j = 0; j < cols; j++) {
@@ -1625,7 +1641,7 @@ function tvStepHTML() {
   h += `</table><div class="tv-row" style="flex:1;min-width:280px">`;
   const delta = s.w[k].map((x, j) => x - s.before.w[k][j]);
   for (const [title, data, sci] of [["weights before", s.before.w[k]], ["gradient (as used)", s.g[k], true], ["change ΔW", delta, true], ["weights after", s.w[k]]])
-    h += `<div class="tv-card"><b>${esc(list[k].name)}: ${title}</b><div style="max-width:100%;overflow:auto">${tvGrid(data, rows, cols, { pick: true, sel: c, sci })}</div></div>`;
+    h += `<div class="tv-card"><b>${esc(list[k].name)}: ${title}</b><div style="max-width:100%;overflow:auto">${tvGrid(data, rows, cols, { pick: true, sel: c, sci, grid: title })}</div></div>`;
   h += `</div></div>`;
 
   const g = s.g[k][c], m0 = s.before.m[k][c], v0 = s.before.v[k][c], m = s.m[k][c], v = s.v[k][c];
@@ -1740,7 +1756,7 @@ function tvEmbedHTML(idx) {
 }
 function renderStep() {
   const scroll = $("tvBatch") ? $("tvBatch").scrollTop : 0;
-  $("tvStep").innerHTML = tvStepHTML();
+  keepingFocus($("tvStep"), () => { $("tvStep").innerHTML = tvStepHTML(); });
   if ($("tvBatch")) $("tvBatch").scrollTop = scroll;
 }
 function renderTrainTab() {
@@ -1935,7 +1951,7 @@ function initTour(setTab) {
   $("tourNext").onclick = next; $("tourBack").onclick = back; $("tourSkip").onclick = end;
   // Capture phase, so that during the tour the arrow keys move the tour and not the pipeline.
   window.addEventListener("keydown", (e) => {
-    if (at < 0 || (e.key !== "Escape" && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) return;
+    if (at < 0 || keyEdit || (e.key !== "Escape" && (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.matches(GRID_ITEMS)))) return;
     if (e.key === "ArrowRight") next(); else if (e.key === "ArrowLeft") back(); else if (e.key === "Escape") end(); else return;
     e.preventDefault(); e.stopPropagation();
   }, true);
@@ -1947,7 +1963,7 @@ function initTour(setTab) {
 
 function renderLive() {
   reg = {};
-  if (state.tab === "train") renderTrainTab(); else { renderDetail(); renderHeads(); }
+  if (state.tab === "train") renderTrainTab(); else { keepingFocus($("detail"), renderDetail); renderHeads(); }
   renderTraining(); applyHover();
 }
 
@@ -2067,42 +2083,134 @@ function editPoints() {
   return e && e.model === state.model && e.step === state.trainer.stepCount ? e.pts : [];
 }
 
+/* One hand edit of one weight, shared by dragging and the keyboard: set() as often as you like,
+ * then commit() to keep it or cancel() to put the old value back. */
+function beginWeightEdit(k, i) {
+  setTraining(false);
+  const model = state.model, { name, t } = model.list[k], data = t.v.data, from = data[i], tip = $("tip");
+  const pts = editPoints().slice();
+  if (!pts.length) pts.push(evaluateModel());
+  pts.push(pts[pts.length - 1]);                              // this edit's point, updated as you go
+  state.edits = { model, step: state.trainer.stepCount, pts };
+  state.drag = true; applyHover(); $("infoPop").style.display = "none";
+  let value = from, frame = 0, at = [0, 0], open = true;
+  const show = () => {
+    const was = pts[pts.length - 2], now = pts[pts.length - 1], pct = (a) => (100 * a).toFixed(0) + "%";
+    tip.innerHTML = `${esc(name)}[${Math.floor(i / t.v.cols)},${i % t.v.cols}] = <b>${fmtN(value)}</b> (was ${fmtN(from)})<br>loss ${fmtN(was.loss)} → <b>${fmtN(now.loss)}</b><br>accuracy ${pct(was.acc)} → <b>${pct(now.acc)}</b><br>(on 64 fixed examples)`;
+    tip.style.display = "block";
+    tip.style.left = Math.max(4, Math.min(at[0] + 14, innerWidth - tip.offsetWidth - 6)) + "px";
+    tip.style.top = Math.max(4, Math.min(at[1] + 14, innerHeight - tip.offsetHeight - 6)) + "px";
+  };
+  const draw = () => { frame = 0; pts[pts.length - 1] = evaluateModel(); refresh(); show(); };
+  const close = (keep) => {
+    if (!open) return;
+    open = false; cancelAnimationFrame(frame); state.drag = false; tip.style.display = "none";
+    if (state.model !== model) return;                        // the model was replaced mid-edit
+    if (!keep) data[i] = from;
+    if (data[i] !== from) { pts[pts.length - 1] = evaluateModel(); state.trainer.weightsEdited(); track("weight/dragged"); } else pts.pop();
+    refresh();
+  };
+  return {
+    get value() { return value; }, from,
+    set(v, x, y) { value = v; data[i] = v; at = [x, y]; if (!frame) frame = requestAnimationFrame(draw); },
+    commit() { close(true); }, cancel() { close(false); },
+  };
+}
+
 /* drag a weight cell up or down to change it; the whole trace recomputes as you move */
 function startWeightDrag(e) {
   const td = e.target.closest("td[data-w]");
   if (!td || e.button !== 0) return;
   e.preventDefault();
-  const { name, t } = state.model.list[+td.dataset.w], data = t.v.data, i = +td.dataset.wi, tip = $("tip");
-  let from = null, value, lastY = e.clientY, frame = 0, pts = null;   // from stays null until the pointer moves
-  const show = (x, y) => {
-    const was = pts[pts.length - 2], now = pts[pts.length - 1], pct = (a) => (100 * a).toFixed(0) + "%";
-    tip.innerHTML = `${esc(name)}[${Math.floor(i / t.v.cols)},${i % t.v.cols}] = <b>${fmtN(value)}</b> (was ${fmtN(from)})<br>loss ${fmtN(was.loss)} → <b>${fmtN(now.loss)}</b><br>accuracy ${pct(was.acc)} → <b>${pct(now.acc)}</b><br>(on 64 fixed examples)`;
-    tip.style.display = "block"; tip.style.left = x + 14 + "px"; tip.style.top = Math.min(y + 14, innerHeight - tip.offsetHeight - 6) + "px";
-  };
-  const rescore = () => { pts[pts.length - 1] = evaluateModel(); refresh(); };
+  endKeyEdit(true);
+  let edit = null, value = 0, lastY = e.clientY;              // edit stays null until the pointer moves
   const move = (ev) => {
-    if (from === null) {
+    if (!edit) {
       if (ev.clientY === lastY) return;                       // a plain click changes and pauses nothing
-      setTraining(false); from = value = data[i];
-      pts = editPoints().slice();
-      if (!pts.length) pts.push(evaluateModel());
-      pts.push(pts[pts.length - 1]);                          // this drag's point, updated as you move
-      state.edits = { model: state.model, step: state.trainer.stepCount, pts };
-      state.drag = true; applyHover(); $("infoPop").style.display = "none";
+      edit = beginWeightEdit(+td.dataset.w, +td.dataset.wi); value = edit.from;
     }
     value += (lastY - ev.clientY) * (ev.shiftKey ? 0.001 : 0.02);   // up = larger; Shift = fine, from here on
-    lastY = ev.clientY; data[i] = value;
-    const x = ev.clientX, y = ev.clientY;
-    if (!frame) frame = requestAnimationFrame(() => { frame = 0; rescore(); show(x, y); });
+    lastY = ev.clientY; edit.set(value, ev.clientX, ev.clientY);
   };
   const end = () => {
     window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
-    if (from === null) return;
-    cancelAnimationFrame(frame); state.drag = false; tip.style.display = "none";
-    if (value !== from) { state.trainer.weightsEdited(); track("weight/dragged"); } else pts.pop();
-    if (value !== from) rescore(); else refresh();
+    if (edit) edit.commit();
   };
   window.addEventListener("pointermove", move); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
+}
+
+/* ----- keyboard: each grid is one Tab stop; arrow keys move inside it -----
+ * Weight grids: Enter starts an edit, ↑/↓ change the value (Shift fine, PageUp/PageDown coarse),
+ * Enter keeps it, Esc puts it back. */
+const GRID_ITEMS = "td[data-w],td[data-cell],tr[data-tensor]";
+const gridOf = (el) => el.closest("table");
+const spotInGrid = new Map();                                 // grid id → index of its Tab stop
+const gridId = (g) => g.dataset.grid || (g.querySelector("td[data-mid]") || {}).dataset?.mid || "tensors";
+function setupGrids(root) {
+  root.querySelectorAll("table").forEach((g) => {
+    const items = [...g.querySelectorAll(GRID_ITEMS)];
+    if (!items.length) return;
+    const stop = Math.min(spotInGrid.get(gridId(g)) || 0, items.length - 1);
+    items.forEach((el, n) => {
+      el.tabIndex = n === stop ? 0 : -1;
+      if (el.dataset.w !== undefined) el.setAttribute("aria-label", `${state.model.list[+el.dataset.w].name} row ${el.dataset.i} column ${el.dataset.j}: ${el.textContent}. Press Enter to edit.`);
+      if (el.dataset.w !== undefined && keyEdit && keyEdit.w === el.dataset.w && keyEdit.wi === el.dataset.wi) el.classList.add("editing");
+    });
+  });
+}
+// Panels are redrawn with innerHTML, so remember which cell had the focus and give it back.
+function keepingFocus(root, redraw) {
+  const el = document.activeElement, mine = el && root.contains(el) && el.matches(GRID_ITEMS);
+  const key = mine && (el.dataset.w !== undefined ? `td[data-w="${el.dataset.w}"][data-wi="${el.dataset.wi}"][data-i="${el.dataset.i}"]`
+    : el.dataset.cell !== undefined ? `table[data-grid="${gridOf(el).dataset.grid}"] td[data-cell="${el.dataset.cell}"]` : `tr[data-tensor="${el.dataset.tensor}"]`);
+  redraw();
+  setupGrids(root);
+  const again = key && root.querySelector(key);
+  if (again) again.focus({ preventScroll: true });
+}
+let keyEdit = null;                                           // {edit, w, wi} while editing by keyboard
+function endKeyEdit(keep) {
+  if (!keyEdit) return;
+  const { edit } = keyEdit; keyEdit = null;
+  document.querySelectorAll("td.editing").forEach((e) => e.classList.remove("editing"));
+  if (keep) edit.commit(); else edit.cancel();
+}
+function gridKeys(e) {
+  const el = e.target.closest(GRID_ITEMS); if (!el) return;
+  const eat = () => { e.preventDefault(); e.stopPropagation(); };
+  const where = () => { const r = el.getBoundingClientRect(); return [r.right, r.bottom]; };
+  if (keyEdit) {
+    const size = e.key.startsWith("Page") ? 0.2 : e.shiftKey ? 0.001 : 0.02;
+    if (e.key === "ArrowUp" || e.key === "PageUp") { eat(); keyEdit.edit.set(keyEdit.edit.value + size, ...where()); }
+    else if (e.key === "ArrowDown" || e.key === "PageDown") { eat(); keyEdit.edit.set(keyEdit.edit.value - size, ...where()); }
+    else if (e.key === "Enter" || e.key === " ") { eat(); endKeyEdit(true); }
+    else if (e.key === "Escape") { eat(); endKeyEdit(false); }
+    else if (e.key === "Tab") endKeyEdit(true);
+    else if (e.key.startsWith("Arrow")) eat();
+    return;
+  }
+  if ((e.key === "Enter" || e.key === " ") && el.dataset.w !== undefined) {
+    eat();
+    keyEdit = { w: el.dataset.w, wi: el.dataset.wi, edit: beginWeightEdit(+el.dataset.w, +el.dataset.wi) };
+    el.classList.add("editing"); keyEdit.edit.set(keyEdit.edit.from, ...where());
+    return;
+  }
+  if (!e.key.startsWith("Arrow")) return;
+  eat();
+  const grid = gridOf(el), items = [...grid.querySelectorAll(GRID_ITEMS)], n = items.indexOf(el);
+  const cols = el.matches("tr") ? 1 : el.parentElement.querySelectorAll("td").length;
+  const step = { ArrowLeft: el.matches("tr") ? 0 : -1, ArrowRight: el.matches("tr") ? 0 : 1, ArrowUp: -cols, ArrowDown: cols }[e.key];
+  const next = items[n + step];
+  if (!next || next === el) return;
+  items.forEach((x) => { x.tabIndex = -1; }); next.tabIndex = 0; next.focus();
+  spotInGrid.set(gridId(grid), n + step);
+  if (next.dataset.w === undefined) pickInStep(next);        // Training tab: moving also selects
+}
+// Training tab: choose a tensor (row) or a weight (cell) and redraw the step.
+function pickInStep(el) {
+  const row = el.closest("[data-tensor]"), cell = el.closest("[data-cell]");
+  if (row) { state.tv.tensor = +row.dataset.tensor; state.tv.cell = 0; } else if (cell) state.tv.cell = +cell.dataset.cell; else return;
+  renderStep();
 }
 
 /* hover: cell explainer + token highlighting */
@@ -2206,6 +2314,10 @@ function initUI() {
   };
 
   $("detail").onpointerdown = startWeightDrag;
+  $("detail").addEventListener("keydown", gridKeys);
+  $("tvStep").addEventListener("keydown", gridKeys);
+  // Leaving the cell being edited keeps the value. Checked a moment later, because redrawing also blurs.
+  $("detail").addEventListener("focusout", () => setTimeout(() => { if (keyEdit && !document.activeElement.matches("td.editing")) endKeyEdit(true); }, 0));
   $("trainBtn").onclick = () => { track("train/train"); setTraining(!state.trainer.running); };
   $("step1").onclick = () => { track("train/step-1"); stepN(1); };
   $("step100").onclick = () => { track("train/step-100"); stepN(100); };
@@ -2234,9 +2346,7 @@ function initUI() {
   $("tabTrain").onclick = () => { track("tab/training"); setTab("train"); };
   // pointerdown, not click: while training the tables are redrawn too often for a click to land
   $("tvStep").onpointerdown = (e) => {
-    const row = e.target.closest("[data-tensor]"), cell = e.target.closest("[data-cell]");
-    if (row) { state.tv.tensor = +row.dataset.tensor; state.tv.cell = 0; } else if (cell) state.tv.cell = +cell.dataset.cell; else return;
-    renderStep();
+    pickInStep(e.target);
   };
   $("tvMetric").onchange = (e) => { state.tv.metric = e.target.value; renderTrainTab(); };
   $("tvSlider").oninput = (e) => { tvStopPlay(); tvSeek(+e.target.value); };

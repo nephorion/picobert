@@ -1,5 +1,7 @@
 # Spec: Tiny BERT Visualizer
 
+> **This is the original brief, kept for reference.** The app has since grown past it: a Training tab with replay, Twin pairs as the default task, dragging and keyboard editing of weights, a guided tour, a CI check, and usage counts on the hosted copy. The README describes what the page does now.
+
 An interactive, single-page visualizer that runs a deliberately tiny BERT-style encoder **in the browser** and shows every number in every step of the forward pass, while the model trains on a toy task.
 
 The goal is to build **intuition** for the computation. It isn't meant to be useful for real NLP.
