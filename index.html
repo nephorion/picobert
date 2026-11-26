@@ -320,7 +320,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
   <div class="tour-btns"><button id="tourSkip">Skip tour</button><span class="sep"></span><button id="tourBack">Back</button><button id="tourNext" class="primary">Next</button></div>
 </div>
 <dialog id="story" aria-labelledby="storyTitle">
-  <div class="story-head"><b id="storyTitle">How this was made</b><button id="storyClose" autofocus>Close</button></div>
+  <div class="story-head"><b id="storyTitle">How it was made</b><button id="storyClose" autofocus>Close</button></div>
   <div class="story-body" tabindex="0">
   <p class="caption">A flavour of the conversations behind this page, condensed and tidied: not word for word.</p>
   <h3>1 · It started as a question</h3>
@@ -333,7 +333,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
   <h3>2 · Then it was steered, a sentence or two at a time</h3>
   <p class="story-note">Claude Code built the first version from that spec. After that the conversations looked like this.</p>
   <p class="msg you"><span>Human</span>Can we build a visualiser for the training process, maybe on a separate tab?</p>
-  <p class="msg ai"><span>Claude</span>Yes: one training step in full, history for each weight, and a replay that shows attention forming.</p>
+  <p class="msg ai"><span>Claude</span>Yes: one training step in full, history for each weight tensor, and a replay that shows attention forming.</p>
   <p class="msg you"><span>Human</span>I’ve seen sites with guided tours that show you how to use them. Can we do that here, and what would it look like?</p>
   <p class="msg ai"><span>Claude</span>Eight short steps on the live page: the puzzle, an untrained guess, you train it, then find the head that solved it.</p>
   <p class="msg you"><span>Human</span>I can change some of the weights by dragging. I’d like to see the loss graphs update, and we need an indicator for which weights can be edited.</p>
@@ -2363,7 +2363,9 @@ function initUI() {
   $("detail").onpointerdown = startWeightDrag;
   $("storyBtn").onclick = () => { $("story").showModal(); document.querySelector(".story-body").scrollTop = 0; };
   $("storyClose").onclick = () => $("story").close();
-  $("story").onclick = (e) => { if (e.target === $("story")) $("story").close(); };   // click outside
+  let pressedOutside = false;   // so that a text selection dragged off the popup does not close it
+  $("story").onpointerdown = (e) => { pressedOutside = e.target === $("story"); };
+  $("story").onclick = (e) => { if (pressedOutside && e.target === $("story")) $("story").close(); };
   $("detail").addEventListener("keydown", gridKeys);
   $("tvStep").addEventListener("keydown", gridKeys);
   // Leaving the cell being edited keeps the value. Checked a moment later, because redrawing also blurs.
