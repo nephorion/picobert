@@ -13,7 +13,7 @@
 <meta property="og:image" content="https://nephorion.github.io/picobert/docs/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The visualizer: attention heads with query and key arrows and heatmaps">
+<meta property="og:image:alt" content="Three attention heads, each drawing its query and key vectors as arrows">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314161b'/%3E%3Crect x='3' y='3' width='8' height='8' rx='2' fill='%238b5cf6' opacity='1'/%3E%3Crect x='12' y='3' width='8' height='8' rx='2' fill='%230d9488' opacity='0.45'/%3E%3Crect x='21' y='3' width='8' height='8' rx='2' fill='%23db2777' opacity='0.2'/%3E%3Crect x='3' y='12' width='8' height='8' rx='2' fill='%238b5cf6' opacity='0.45'/%3E%3Crect x='12' y='12' width='8' height='8' rx='2' fill='%230d9488' opacity='1'/%3E%3Crect x='21' y='12' width='8' height='8' rx='2' fill='%23db2777' opacity='0.45'/%3E%3Crect x='3' y='21' width='8' height='8' rx='2' fill='%238b5cf6' opacity='0.2'/%3E%3Crect x='12' y='21' width='8' height='8' rx='2' fill='%230d9488' opacity='0.45'/%3E%3Crect x='21' y='21' width='8' height='8' rx='2' fill='%23db2777' opacity='1'/%3E%3C/svg%3E">
 <style>
@@ -214,7 +214,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
       <ol>
         <li>Press <b>→</b> a few times (or click the stage buttons) to walk through one forward pass.</li>
         <li>Hover any number in a computed matrix: the exact arithmetic appears and its inputs light up.</li>
-        <li><b>Drag a weight</b> (dashed cells, marked <b>↕ drag to edit</b>) up or down, or Tab to it, press Enter and use ↑ ↓ and watch the attention and output change. Save a snapshot first if you want to get back.</li>
+        <li><b>Drag a weight</b> (dashed cells, marked <b>↕ drag to edit</b>) up or down and watch the attention and output change. By keyboard: Tab to a grid, press Enter and use ↑ ↓. Save a snapshot first if you want to get back.</li>
         <li>In the bottom panel press <b>Step ×100</b> a few times, or <b>Train</b>. Watch the loss fall and the attention heatmaps sharpen.</li>
         <li>Click a token box in the top bar to mask a different position and see how the prediction changes.</li>
         <li>Choose the task <b>Your data…</b> to train on your own sequences — ready-made example sets are provided.</li>
@@ -1951,7 +1951,7 @@ function initTour(setTab) {
   $("tourNext").onclick = next; $("tourBack").onclick = back; $("tourSkip").onclick = end;
   // Capture phase, so that during the tour the arrow keys move the tour and not the pipeline.
   window.addEventListener("keydown", (e) => {
-    if (at < 0 || keyEdit || (e.key !== "Escape" && (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.matches(GRID_ITEMS)))) return;
+    if (at < 0 || keyEdit || e.altKey || e.ctrlKey || e.metaKey || (e.key !== "Escape" && (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.matches(GRID_ITEMS)))) return;
     if (e.key === "ArrowRight") next(); else if (e.key === "ArrowLeft") back(); else if (e.key === "Escape") end(); else return;
     e.preventDefault(); e.stopPropagation();
   }, true);
@@ -2011,6 +2011,7 @@ function loadExample(ex) {
   state.truth = ex.truth.slice(); state.mask = state.truth.map((_, i) => ex.maskedPositions.includes(i));
 }
 function resetModel() {
+  endKeyEdit(true);
   const seed = state.seed;
   const cfg = { ...CONFIG, n_layers: state.nLayers };
   state.model = createModel(cfg, state.task.vocab.length, seed);
@@ -2167,6 +2168,8 @@ function keepingFocus(root, redraw) {
   setupGrids(root);
   const again = key && root.querySelector(key);
   if (again) again.focus({ preventScroll: true });
+  // The cell being edited may be gone (another stage). Not every browser reports that as losing focus.
+  if (keyEdit && root === $("detail") && !root.querySelector("td.editing")) endKeyEdit(true);
 }
 let keyEdit = null;                                           // {edit, w, wi} while editing by keyboard
 function endKeyEdit(keep) {
@@ -2176,7 +2179,7 @@ function endKeyEdit(keep) {
   if (keep) edit.commit(); else edit.cancel();
 }
 function gridKeys(e) {
-  const el = e.target.closest(GRID_ITEMS); if (!el) return;
+  const el = e.target.closest(GRID_ITEMS); if (!el || e.altKey || e.ctrlKey || e.metaKey) return;
   const eat = () => { e.preventDefault(); e.stopPropagation(); };
   const where = () => { const r = el.getBoundingClientRect(); return [r.right, r.bottom]; };
   if (keyEdit) {
@@ -2191,10 +2194,14 @@ function gridKeys(e) {
   }
   if ((e.key === "Enter" || e.key === " ") && el.dataset.w !== undefined) {
     eat();
-    keyEdit = { w: el.dataset.w, wi: el.dataset.wi, edit: beginWeightEdit(+el.dataset.w, +el.dataset.wi) };
-    el.classList.add("editing"); keyEdit.edit.set(keyEdit.edit.from, ...where());
+    setTraining(false);
+    const cell = el.isConnected ? el : document.activeElement;   // the focus moved to the redrawn cell
+    const box = cell.getBoundingClientRect();
+    keyEdit = { w: cell.dataset.w, wi: cell.dataset.wi, edit: beginWeightEdit(+cell.dataset.w, +cell.dataset.wi) };
+    cell.classList.add("editing"); keyEdit.edit.set(keyEdit.edit.from, box.right, box.bottom);
     return;
   }
+  if ((e.key === "Enter" || e.key === " ") && el.dataset.w === undefined) { eat(); pickInStep(el); return; }
   if (!e.key.startsWith("Arrow")) return;
   eat();
   const grid = gridOf(el), items = [...grid.querySelectorAll(GRID_ITEMS)], n = items.indexOf(el);
@@ -2305,7 +2312,7 @@ function initUI() {
     else if (b.dataset.stage !== undefined) { state.stage = +b.dataset.stage; renderStrip(); refresh(); }
   };
   document.addEventListener("keydown", (e) => {
-    if (state.tab !== "forward" || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || state.tab !== "forward" || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
   });
   $("heads").onchange = (e) => {

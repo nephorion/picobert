@@ -80,6 +80,34 @@ def weight_editing(page):
     page.keyboard.press("Escape")
     check(abs(value() - before - 0.02) < 1e-9, "Esc did not undo the keyboard edit")
 
+    # modified keys belong to the browser
+    taken = page.evaluate("""() => ['ArrowLeft', 'ArrowRight', 'Enter'].filter(key => !document.activeElement.dispatchEvent(
+        new KeyboardEvent('keydown', {key, altKey: true, bubbles: true, cancelable: true})))""")
+    check(not taken, f"Alt shortcuts were swallowed on a grid cell: {taken}")
+
+    # starting an edit during training pauses it and keeps the tooltip beside the cell
+    page.click("#trainBtn")
+    page.focus("#detail td[data-w][tabindex='0']")
+    page.keyboard.press("Enter")
+    expect(page.locator("#tip")).to_be_visible()
+    cell_box = page.locator("#detail td.editing").first.bounding_box()
+    tip_box = page.locator("#tip").bounding_box()
+    check(not page.evaluate("tinybert.state.trainer.running"), "editing did not pause training")
+    check(abs(tip_box["x"] - cell_box["x"]) < 400 and tip_box["x"] > 20, f"tooltip is away from the cell: {tip_box}")
+
+    # a redraw that removes the edited cell ends the edit, even without a focus event
+    page.evaluate("""() => { addEventListener('focusout', e => e.stopPropagation(), {capture: true, once: false});
+        tinybert.state.stage = 0; document.querySelector("[data-stage='4']").click(); }""")
+    check(not page.evaluate("tinybert.state.drag"), "the edit stayed open after its cell was removed")
+
+    # Training tab: Enter and Space select the focused item
+    page.click("#tabTrain")
+    page.click("#step1")
+    for key, row in (("Enter", 2), (" ", 3)):
+        page.focus(f"#tvStep tr[data-tensor='{row}']")
+        page.keyboard.press(key)
+        check(page.evaluate("tinybert.state.tv.tensor") == row, f"{key!r} did not select tensor row {row}")
+
 
 def main():
     with sync_playwright() as p:
