@@ -23,6 +23,10 @@ The page opens on **Twin pairs**: every token appears twice in a row, so a maske
 
 Twin pairs, 3000 steps, seeds 1–10: nine reach 100 % masked accuracy by step 1000, with the best head putting 0.64–0.94 of a masked position's attention on its twin. Seed 5 is the exception (about 60 % accuracy at step 3000). This built-in task never hides both twins; the *Twin pairs* example set under *Your data…* can, which is why its ceiling and measurements differ.
 
+## Usage counts
+
+The hosted copy (nephorion.github.io/picobert) uses [GoatCounter](https://www.goatcounter.com) (no cookies) to count visits and, once per page load, which features are used: tour steps reached, finished or left; Train and Step; the Training tab; dragging a weight; which task or example set; whether data was pasted or uploaded; and Ko-fi and GitHub link clicks. GoatCounter also records things like referrer and screen width. Sequences, file names and weights are never sent. Opened from disk or hosted elsewhere, the page loads nothing and sends nothing. To leave your own visits out, open the live page once with `#toggle-goatcounter` added to the address.
+
 ## Self-tests in CI
 
 `node ci/selftest.js` runs the page's built-in self-tests without a browser and exits non-zero if any fail. GitHub Actions runs it on every pull request and on pushes to `main`.

@@ -280,6 +280,7 @@ hidden:  c c   [MASK] a   f f   b b</code><br>The only clue is its partner, its 
   </section>
 </div>
 <details id="tests"><summary><span id="testsSummary">Self-tests</span><span data-ic="tests"></span></summary><div id="testsBody"></div></details>
+<div class="caption" style="margin:0 14px 14px">The copy hosted at nephorion.github.io counts visits and which features get used, with <a href="https://www.goatcounter.com/help/privacy" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a> (no cookies). Your sequences and weights are never sent. Opened from disk, this page sends nothing.</div>
 <div id="tip"></div>
 <div id="tourSpot" hidden></div>
 <div id="tourCard" role="dialog" aria-labelledby="tourTitle" hidden>
@@ -1767,6 +1768,33 @@ function tvTogglePlay() {
   renderTrainTab();
 }
 
+/* ----- usage counts (GoatCounter: no cookies). Only the hosted copy sends anything; opened from disk
+ * or served anywhere else, track() does nothing and no outside script is loaded. Only the fixed event
+ * names below are sent, never sequences, tokens, file names or weights. ----- */
+const STATS = { host: "nephorion.github.io", endpoint: "https://nephorion.goatcounter.com/count", script: "https://gc.zgo.at/count.js" };
+const counted = new Set(), waiting = [];
+const statsOn = () => location.hostname === STATS.host && location.pathname.startsWith("/picobert");
+function sendCount(name) {
+  try { window.goatcounter.count({ path: "picobert/" + name, title: name, event: true }); } catch {}   // counting must never break the page
+}
+// Count an action once per page load (so dragging or stepping repeatedly is one count).
+function track(name) {
+  if (!statsOn() || counted.has(name)) return;
+  counted.add(name);
+  if (window.goatcounter && window.goatcounter.count) sendCount(name); else waiting.push(name);
+}
+function initStats() {
+  if (!statsOn()) return;
+  const el = document.createElement("script");
+  el.async = true; el.src = STATS.script; el.dataset.goatcounter = STATS.endpoint;
+  el.onload = () => waiting.splice(0).forEach(sendCount);               // the script counts the page view itself
+  document.head.appendChild(el);
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("a.kofi, a.gh-corner");
+    if (a) track(a.classList.contains("kofi") ? "link/kofi" : "link/github");
+  }, true);
+}
+
 /* ----- guided tour: dims the page, lights one part, and explains it. The page stays usable. ----- */
 const trained = () => state.trainer.stepCount > 0;
 // How strongly each head's masked rows (of the shown example) look at the twin, in the shown layer.
@@ -1859,6 +1887,7 @@ function initTour(setTab) {
   const go = (i) => {
     cancelAnimationFrame(frame);
     at = i; shown = "";
+    track(`tour/step-${i + 1}`);
     const step = TOUR[i];
     if (step.stage !== undefined) { state.stage = step.stage; renderStrip(); }
     setTab(step.tab);
@@ -1869,8 +1898,9 @@ function initTour(setTab) {
     else scrollTo(0, 0);
     place();
   };
-  const end = () => {
+  const end = (finished) => {
     if (at < 0) return;
+    track(finished === true ? "tour/finished" : `tour/left-at-${at + 1}`);
     cancelAnimationFrame(frame); at = -1; spot.hidden = card.hidden = true; $("guide").open = guideWasOpen;
   };
   const start = () => {
@@ -1884,7 +1914,7 @@ function initTour(setTab) {
     spot.hidden = card.hidden = false;
     go(0); $("tourNext").focus();
   };
-  const next = () => (at === TOUR.length - 1 ? end() : go(at + 1));
+  const next = () => (at === TOUR.length - 1 ? end(true) : go(at + 1));
   const back = () => { if (at > 0) go(at - 1); };
 
   $("tourConfirmNo").onclick = () => ask.close();
@@ -2059,7 +2089,7 @@ function startWeightDrag(e) {
     window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
     if (from === null) return;
     cancelAnimationFrame(frame); state.drag = false; tip.style.display = "none";
-    if (value !== from) state.trainer.weightsEdited(); else pts.pop();
+    if (value !== from) { state.trainer.weightsEdited(); track("weight/dragged"); } else pts.pop();
     if (value !== from) rescore(); else refresh();
   };
   window.addEventListener("pointermove", move); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
@@ -2125,7 +2155,7 @@ function initUI() {
   loadExample(state.task.gen(makeRng(state.seed + 2000)));
   resetModel();
 
-  $("taskSel").onchange = (e) => setTask(+e.target.value);
+  $("taskSel").onchange = (e) => { setTask(+e.target.value); track(`task/${state.task.id}`); };
   $("layersSel").onchange = (e) => { state.nLayers = +e.target.value; state.layer = 0; resetModel(); };
   $("layerSel").onchange = (e) => { state.layer = +e.target.value; renderStrip(); refresh(); };
   $("resetBtn").onclick = () => { state.seed = parseInt($("seed").value, 10) || 0; state.uiRng = makeRng(state.seed + 2000); setTraining(false); resetModel(); };
@@ -2137,16 +2167,16 @@ function initUI() {
   $("randBtn").onclick = () => { loadExample(state.task.gen(state.uiRng)); renderChips(); refresh(); };
   $("chips").onclick = (e) => { const t = e.target.closest("[data-toggle]"); if (t) { const i = +t.dataset.toggle; state.mask[i] = !state.mask[i]; renderChips(); refresh(); } };
   $("chips").onchange = (e) => { const s = e.target.closest("[data-set]"); if (s) { state.truth[+s.dataset.set] = +s.value; renderChips(); refresh(); } };
-  $("dataLoad").onclick = () => loadData("Your data (pasted)");
+  $("dataLoad").onclick = () => { track("data/pasted"); loadData("Your data (pasted)"); };
   $("exampleSets").onclick = (e) => {
     const b = e.target.closest("button[data-ex]"); if (!b) return;
     const ex = EXAMPLE_SETS.find((x) => x.id === b.dataset.ex), text = ex.text();
     if (b.dataset.act === "dl") {
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain" })); a.download = `tinybert-${ex.id}.${ex.id === "capitals" ? "jsonl" : "txt"}`; a.click(); return;
     }
-    setTraining(false); $("dataText").value = text; loadData("Your data: " + ex.name); state.exampleId = ex.id; renderExamples();
+    track(`data/example-${ex.id}`); setTraining(false); $("dataText").value = text; loadData("Your data: " + ex.name); state.exampleId = ex.id; renderExamples();
   };
-  $("dataFile").onchange = async (e) => { if (e.target.files[0]) { $("dataText").value = await e.target.files[0].text(); loadData("Your data: " + e.target.files[0].name); } e.target.value = ""; };
+  $("dataFile").onchange = async (e) => { if (e.target.files[0]) { track("data/uploaded"); $("dataText").value = await e.target.files[0].text(); loadData("Your data: " + e.target.files[0].name); } e.target.value = ""; };
 
   const go = (d) => { state.stage = (state.stage + d + STAGES.length) % STAGES.length; renderStrip(); refresh(); };
   let playTimer = null;
@@ -2166,9 +2196,9 @@ function initUI() {
   };
 
   $("detail").onpointerdown = startWeightDrag;
-  $("trainBtn").onclick = () => setTraining(!state.trainer.running);
-  $("step1").onclick = () => stepN(1);
-  $("step100").onclick = () => stepN(100);
+  $("trainBtn").onclick = () => { track("train/train"); setTraining(!state.trainer.running); };
+  $("step1").onclick = () => { track("train/step-1"); stepN(1); };
+  $("step100").onclick = () => { track("train/step-100"); stepN(100); };
   $("lrIn").onchange = (e) => { state.trainer.lr = parseFloat(e.target.value) || CONFIG.lr; };
   $("clipIn").onchange = (e) => { state.trainer.clip = e.target.checked; };
   $("snapBtn").onclick = () => {
@@ -2191,7 +2221,7 @@ function initUI() {
     state.hover = null; refresh();
   };
   $("tabForward").onclick = () => setTab("forward");
-  $("tabTrain").onclick = () => setTab("train");
+  $("tabTrain").onclick = () => { track("tab/training"); setTab("train"); };
   // pointerdown, not click: while training the tables are redrawn too often for a click to land
   $("tvStep").onpointerdown = (e) => {
     const row = e.target.closest("[data-tensor]"), cell = e.target.closest("[data-cell]");
@@ -2203,6 +2233,7 @@ function initUI() {
   $("tvPlay").onclick = tvTogglePlay;
   $("tvPos").onchange = (e) => { state.tv.pos = e.target.checked; renderTrainTab(); };
 
+  initStats();
   initTour(setTab);
 
   // (i) icons: turn <span data-ic="key"> placeholders into icons; hover shows, click pins
