@@ -109,6 +109,43 @@ def weight_editing(page):
         check(page.evaluate("tinybert.state.tv.tensor") == row, f"{key!r} did not select tensor row {row}")
 
 
+def story(page):
+    page.click("#tabForward")
+    page.click("[data-stage='2']")
+    page.click("#storyBtn")
+    expect(page.locator("#story")).to_be_visible()
+    check(page.locator("#story .msg").count() > 6, "the story popup has no conversation")
+    page.keyboard.press("ArrowRight")
+    check(page.evaluate("tinybert.state.stage") == 2, "arrow keys stepped the pipeline behind the popup")
+    page.keyboard.press("Escape")
+    expect(page.locator("#story")).to_be_hidden()
+    page.click("#storyBtn")
+    page.click("#storyClose")
+    expect(page.locator("#story")).to_be_hidden()
+
+    # dragging a text selection off the popup keeps it open; a click outside closes it
+    page.click("#storyBtn")
+    box = page.locator("#story .msg").first.bounding_box()
+    page.mouse.move(box["x"] + 20, box["y"] + box["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(3, 400)
+    page.mouse.up()
+    expect(page.locator("#story")).to_be_visible()
+    page.mouse.click(3, 400)
+    expect(page.locator("#story")).to_be_hidden()
+
+    # during the tour, arrows and Esc belong to the popup (the modal blocks a real click on the link)
+    page.click("#tourBtn")
+    if page.is_visible("#tourConfirm"):
+        page.click("#tourConfirmYes")
+    page.click("#storyBtn")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("Escape")
+    expect(page.locator("#story")).to_be_hidden()
+    expect(page.locator("#tourCount")).to_have_text("1 of 8")
+    page.click("#tourSkip")
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -127,7 +164,7 @@ def main():
         page.on("console", lambda m: m.type == "error" and errors.append(m.text))
         page.goto(PAGE)
         page.click("#tourDismiss")
-        for part in (forward_pass, training_tab, guided_tour, weight_editing):
+        for part in (forward_pass, training_tab, guided_tour, weight_editing, story):
             part(page)
             check(not errors, f"{part.__name__}: page errors: {errors}")
             print(f"PASS {part.__name__}")
