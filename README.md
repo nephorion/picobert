@@ -5,6 +5,8 @@
 
 **Live demo:** https://nephorion.github.io/picobert/
 
+**☕ Support this project:** [ko-fi.com/museofnephorion](https://ko-fi.com/museofnephorion)
+
 ![The forward-pass view after 3000 steps on the default Twin pairs task: for the masked token, head 2 puts 0.98 of its attention on the token's twin](docs/screenshot.png)
 
 Open `index.html` directly in Chrome, Firefox or Edge (no server, no build, works offline). It runs a deliberately tiny BERT-style encoder (d_model 6, 3 heads of width 2) written in plain JS with a hand-rolled matrix autograd, and trains it live on toy masked-token tasks. The **pipeline strip** steps through one forward pass (←/→, Prev/Next/Play); the **left panel** shows every intermediate matrix of the selected stage with real numbers, and hovering any computed cell shows the arithmetic that produced it and highlights its inputs. The **heads panel** (right) shows, per head, the query (solid) and key (dashed) vectors as 2D arrows (hover a query to see its projection onto each key), the attention heatmap, attention lines, and optionally the W_QK / W_OV circuit matrices; each head can be ablated. The **bottom panel** trains (Train / Step ×1 / Step ×100), plots loss and masked-token accuracy, shows predictions at the masked positions, and saves/restores weight snapshots to compare before and after.
